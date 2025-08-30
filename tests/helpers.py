@@ -22,6 +22,9 @@ def run_converter(input_dir: Path, output_dir: Path, *args: str) -> int:
 def _iter_files(root: Path) -> Iterable[Path]:
     for dirpath, _, filenames in os.walk(root):
         for name in filenames:
+            # Ignore test metadata files that are not part of the golden output
+            if name == "manifest.yml":
+                continue
             p = Path(dirpath) / name
             yield p.relative_to(root)
 

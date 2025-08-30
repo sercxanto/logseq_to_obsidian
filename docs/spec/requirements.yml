@@ -1,0 +1,84 @@
+- id: REQ-FRONTMATTER-001
+  area: frontmatter
+  statement: "Convert leading page properties `key:: value` into YAML front matter."
+  status: active
+
+- id: REQ-FRONTMATTER-002
+  area: frontmatter
+  statement: "Map `alias::` or `aliases::` to YAML `aliases: [..]`."
+  status: active
+
+- id: REQ-FRONTMATTER-003
+  area: frontmatter
+  statement: "Map `tags::` to YAML `tags: [..]` with normalized names (no #) and stable order."
+  status: active
+
+- id: REQ-FRONTMATTER-004
+  area: frontmatter
+  statement: "Preserve unknown page properties as scalar YAML fields."
+  status: active
+
+- id: REQ-SPACING-001
+  area: formatting
+  statement: "Ensure exactly one blank line after YAML front matter; no extra leading blank lines before body."
+  status: active
+
+- id: REQ-TASKS-001
+  area: tasks
+  statement: "Convert `- TODO Text` to `- [ ] Text`."
+  status: active
+
+- id: REQ-TASKS-002
+  area: tasks
+  statement: "Convert `- DONE Text` to `- [x] Text`."
+  status: active
+
+- id: REQ-TASKS-003
+  area: tasks
+  statement: "Convert other task states to unchecked; when `--annotate-status`, append `(status: STATE)`."
+  status: active
+
+- id: REQ-BLOCKID-001
+  area: blocks
+  statement: "Attach `id:: VALUE` to the previous content line as a trailing block anchor `^VALUE`."
+  status: active
+
+- id: REQ-BLOCKID-002
+  area: blocks
+  statement: "Do not attach `id::` if a property line appears after the content and before the id."
+  status: active
+
+- id: REQ-BLOCKREF-001
+  area: links
+  statement: "Replace `((id))` with a wiki link to the target note and anchor `[[path#^id]]`."
+  status: active
+
+- id: REQ-BLOCKREF-002
+  area: links
+  statement: "Leave unresolved block references unchanged when the id is unknown."
+  status: active
+
+- id: REQ-LINKPATH-001
+  area: links
+  statement: "Use vault-relative link targets without file extension, with forward slashes."
+  status: active
+
+- id: REQ-JOURNALS-001
+  area: journals
+  statement: "With `--rename-journals`, rename `YYYY_MM_DD.md` to `YYYY-MM-DD.md`."
+  status: active
+
+- id: REQ-JOURNALS-002
+  area: journals
+  statement: "With `--daily-folder NAME`, place journals under that folder in output."
+  status: active
+
+- id: REQ-STRUCTURE-001
+  area: structure
+  statement: "With `--flatten-pages`, drop the leading `pages/` segment in output paths."
+  status: active
+
+- id: REQ-STRUCTURE-002
+  area: structure
+  statement: "Copy non-Markdown files as-is."
+  status: active

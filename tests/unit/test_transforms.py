@@ -1,8 +1,13 @@
 from pathlib import Path
 
+import pytest
+
 import logseq_to_obsidian as l2o
 
 
+@pytest.mark.req("REQ-FRONTMATTER-001")
+@pytest.mark.req("REQ-FRONTMATTER-002")
+@pytest.mark.req("REQ-FRONTMATTER-003")
 def test_parse_page_properties_basic():
     lines = [
         "title:: My Note\n",
@@ -18,6 +23,10 @@ def test_parse_page_properties_basic():
     assert props["aliases"].startswith("[[Alt]]")
 
 
+@pytest.mark.req("REQ-FRONTMATTER-001")
+@pytest.mark.req("REQ-FRONTMATTER-002")
+@pytest.mark.req("REQ-FRONTMATTER-003")
+@pytest.mark.req("REQ-FRONTMATTER-004")
 def test_emit_yaml_frontmatter_mapping():
     props = {
         "title": "Foo",
@@ -33,6 +42,9 @@ def test_emit_yaml_frontmatter_mapping():
     assert "custom: value" in yaml
 
 
+@pytest.mark.req("REQ-TASKS-001")
+@pytest.mark.req("REQ-TASKS-002")
+@pytest.mark.req("REQ-TASKS-003")
 def test_transform_tasks_all_states():
     assert l2o.transform_tasks("- TODO Work\n", False) == "- [ ] Work\n"
     assert l2o.transform_tasks("- DONE Done\n", False) == "- [x] Done\n"
@@ -42,6 +54,8 @@ def test_transform_tasks_all_states():
     assert l2o.transform_tasks("- LATER Soon\n", True) == "- [ ] Soon (status: LATER)\n"
 
 
+@pytest.mark.req("REQ-BLOCKID-001")
+@pytest.mark.req("REQ-BLOCKID-002")
 def test_attach_block_ids_attaches_to_previous_content():
     lines = [
         "Some text\n",
@@ -60,9 +74,20 @@ def test_attach_block_ids_attaches_to_previous_content():
     assert out[-2].startswith("Another line") and out[-2].rstrip("\n").endswith("^ghi789")
 
 
+@pytest.mark.req("REQ-BLOCKREF-001")
+@pytest.mark.req("REQ-LINKPATH-001")
 def test_replace_block_refs_builds_vault_relative_links(tmp_path):
     text = "See ((abc123))\n"
     index = {"abc123": Path(tmp_path / "pages/Foo.md")}
     in_to_out = {Path(tmp_path / "pages/Foo.md"): Path(tmp_path / "pages/Foo.md")}
     out = l2o.replace_block_refs(text, index, in_to_out, tmp_path)
     assert out.strip() == "[[pages/Foo#^abc123]]"
+
+
+@pytest.mark.req("REQ-BLOCKREF-002")
+def test_unresolved_block_refs_are_left_unchanged(tmp_path):
+    text = "Ref ((unknownid)) end\n"
+    index = {}
+    in_to_out = {}
+    out = l2o.replace_block_refs(text, index, in_to_out, tmp_path)
+    assert out == text
