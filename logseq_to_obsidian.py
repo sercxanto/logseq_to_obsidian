@@ -87,10 +87,20 @@ def plan_output_path(p: Path, opt: Options) -> Path:
 
 def collect_files(opt: Options) -> List[FilePlan]:
     plans: List[FilePlan] = []
-    for root, _dirs, files in os.walk(opt.input_dir):
+    for root, dirs, files in os.walk(opt.input_dir):
         root_p = Path(root)
+        # Do not descend into the top-level `logseq/` metadata directory
+        if root_p == opt.input_dir and "logseq" in dirs:
+            dirs.remove("logseq")
         for fname in files:
             in_path = root_p / fname
+            # Defensive skip: ignore any files under top-level `logseq/`
+            try:
+                rel_first = (in_path.relative_to(opt.input_dir).parts or [None])[0]
+            except ValueError:
+                rel_first = None
+            if rel_first == "logseq":
+                continue
             out_path = plan_output_path(in_path, opt)
             plans.append(FilePlan(in_path=in_path, out_path=out_path, is_markdown=is_markdown(in_path)))
     return plans

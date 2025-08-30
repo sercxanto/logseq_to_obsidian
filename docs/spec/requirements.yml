@@ -82,3 +82,8 @@
   area: structure
   statement: "Copy non-Markdown files as-is."
   status: active
+
+- id: REQ-STRUCTURE-003
+  area: structure
+  statement: "Do not process or copy the top-level `logseq/` metadata directory from the source vault."
+  status: active
