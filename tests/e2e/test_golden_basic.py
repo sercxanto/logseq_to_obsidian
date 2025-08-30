@@ -51,7 +51,6 @@ def test_golden_with_options(tmp_path: Path):
     code = run_converter(
         src,
         out,
-        "--rename-journals",
         "--daily-folder",
         "Daily Notes",
         "--annotate-status",

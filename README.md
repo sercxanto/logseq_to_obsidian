@@ -22,7 +22,7 @@ Features
 - Block references:
   - `((<uuid>))` → `[[<FileName>#^<uuid>]]` (resolved by scanning all files first).
 - Journals:
-  - Option to rename `YYYY_MM_DD.md` → `YYYY-MM-DD.md` and/or move journals to a specific folder.
+  - Renames `YYYY_MM_DD.md` → `YYYY-MM-DD.md` and can move journals to a specific folder.
 - Assets and other files are copied as-is.
 
 Usage
@@ -31,7 +31,6 @@ Usage
 python3 logseq_to_obsidian.py \
   --input /path/to/logseq-vault \
   --output /path/to/obsidian-vault \
-  --rename-journals \
   --daily-folder "Daily Notes" \
   --annotate-status \
   --dry-run
@@ -41,7 +40,6 @@ Common options
 
 - `--input`: Path to the Logseq vault root (folder containing `pages/`, `journals/`, etc.).
 - `--output`: Destination Obsidian vault directory (created if not exists).
-- `--rename-journals`: Convert journal filenames from `YYYY_MM_DD` to `YYYY-MM-DD`.
 - `--daily-folder <name>`: Move `journals/` into this folder in the output. If omitted, keeps `journals/`.
 - Pages are always flattened to the vault root; see "File placement rules" below.
 - `--annotate-status`: For non-`TODO/DONE` task states, append `(status: STATE)` after the task text.
@@ -65,6 +63,11 @@ File placement rules
 - Pages: All files from Logseq's `pages/` are placed at the root of the Obsidian vault.
 - Nested paths: Logseq encodes subfolders in page filenames using three underscores `___`.
   - Example: `pages/a___b.md` becomes `a/b.md`.
+
+Journals
+
+- Journal filenames are always renamed from `YYYY_MM_DD.md` to `YYYY-MM-DD.md`.
+- Logseq already displays journal page links using dashes (e.g., `[[2024-08-30]]`), so link text does not need conversion.
 
 Development
 

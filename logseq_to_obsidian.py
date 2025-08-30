@@ -20,7 +20,6 @@ JOURNAL_DATE_DASH_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})\.md$")
 class Options:
     input_dir: Path
     output_dir: Path
-    rename_journals: bool
     daily_folder: Optional[str]
     annotate_status: bool
     dry_run: bool
@@ -37,7 +36,6 @@ def parse_args(argv: List[str]) -> Options:
     p = argparse.ArgumentParser(description="Convert a Logseq vault to Obsidian-friendly Markdown.")
     p.add_argument("--input", required=True, help="Path to Logseq vault root")
     p.add_argument("--output", required=True, help="Path to destination Obsidian vault root")
-    p.add_argument("--rename-journals", action="store_true", help="Rename journal files YYYY_MM_DD.md -> YYYY-MM-DD.md")
     p.add_argument("--daily-folder", default=None, help="Move journals into this folder name in output")
     p.add_argument("--annotate-status", action="store_true", help="Annotate non-TODO/DONE statuses on tasks")
     p.add_argument("--dry-run", action="store_true", help="Do not write files; print plan only")
@@ -45,7 +43,6 @@ def parse_args(argv: List[str]) -> Options:
     return Options(
         input_dir=Path(args.input).resolve(),
         output_dir=Path(args.output).resolve(),
-        rename_journals=bool(args.rename_journals),
         daily_folder=args.daily_folder,
         annotate_status=bool(args.annotate_status),
         dry_run=bool(args.dry_run),
@@ -66,8 +63,8 @@ def plan_output_path(p: Path, opt: Options) -> Path:
         out_base = opt.daily_folder if opt.daily_folder else "journals"
         parts[0] = out_base
 
-        # Optionally rename journal files from underscores to dashes
-        if opt.rename_journals and is_markdown(p):
+        # Always rename journal files from underscores to dashes
+        if is_markdown(p):
             name = parts[-1]
             m = JOURNAL_DATE_UNDERSCORE_RE.match(name)
             if m:
@@ -378,7 +375,7 @@ def main(argv: List[str]) -> int:
     print(f"[CONFIG] input={opt.input_dir}")
     print(f"[CONFIG] output={opt.output_dir}")
     print(
-        f"[CONFIG] rename_journals={opt.rename_journals} daily_folder={opt.daily_folder or '-'} annotate_status={opt.annotate_status} dry_run={opt.dry_run}"
+        f"[CONFIG] daily_folder={opt.daily_folder or '-'} annotate_status={opt.annotate_status} dry_run={opt.dry_run}"
     )
 
     plans = collect_files(opt)
