@@ -15,6 +15,7 @@ from tests.helpers import compare_trees, run_converter
 @pytest.mark.req("REQ-BLOCKID-001")
 @pytest.mark.req("REQ-BLOCKREF-001")
 @pytest.mark.req("REQ-LINKPATH-001")
+@pytest.mark.req("REQ-STRUCTURE-001")
 @pytest.mark.req("REQ-STRUCTURE-002")
 def test_golden_basic(tmp_path: Path):
     src = Path("tests/fixtures/logseq/basic").resolve()
@@ -53,7 +54,6 @@ def test_golden_with_options(tmp_path: Path):
         "--rename-journals",
         "--daily-folder",
         "Daily Notes",
-        "--flatten-pages",
         "--annotate-status",
     )
     assert code == 0

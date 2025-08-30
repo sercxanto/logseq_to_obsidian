@@ -22,7 +22,6 @@ class Options:
     output_dir: Path
     rename_journals: bool
     daily_folder: Optional[str]
-    flatten_pages: bool
     annotate_status: bool
     dry_run: bool
 
@@ -40,9 +39,6 @@ def parse_args(argv: List[str]) -> Options:
     p.add_argument("--output", required=True, help="Path to destination Obsidian vault root")
     p.add_argument("--rename-journals", action="store_true", help="Rename journal files YYYY_MM_DD.md -> YYYY-MM-DD.md")
     p.add_argument("--daily-folder", default=None, help="Move journals into this folder name in output")
-    p.add_argument(
-        "--flatten-pages", action="store_true", help="Move files in pages/ to output root (retains subfolders)"
-    )
     p.add_argument("--annotate-status", action="store_true", help="Annotate non-TODO/DONE statuses on tasks")
     p.add_argument("--dry-run", action="store_true", help="Do not write files; print plan only")
     args = p.parse_args(argv)
@@ -51,7 +47,6 @@ def parse_args(argv: List[str]) -> Options:
         output_dir=Path(args.output).resolve(),
         rename_journals=bool(args.rename_journals),
         daily_folder=args.daily_folder,
-        flatten_pages=bool(args.flatten_pages),
         annotate_status=bool(args.annotate_status),
         dry_run=bool(args.dry_run),
     )
@@ -78,9 +73,16 @@ def plan_output_path(p: Path, opt: Options) -> Path:
             if m:
                 parts[-1] = f"{m.group(1)}-{m.group(2)}-{m.group(3)}.md"
 
-    # Handle pages flattening
-    if parts and parts[0] == "pages" and opt.flatten_pages:
+    # Handle pages flattening (always) and expand "___" to folder separators for markdown files
+    was_pages = parts and parts[0] == "pages"
+    if was_pages:
         parts = list(parts[1:])  # drop the 'pages' segment
+        if is_markdown(p) and parts:
+            name = parts[-1]
+            stem, ext = os.path.splitext(name)
+            if "___" in stem:
+                segs = stem.split("___")
+                parts = parts[:-1] + segs[:-1] + [segs[-1] + ext]
 
     return opt.output_dir.joinpath(*parts)
 
@@ -376,7 +378,7 @@ def main(argv: List[str]) -> int:
     print(f"[CONFIG] input={opt.input_dir}")
     print(f"[CONFIG] output={opt.output_dir}")
     print(
-        f"[CONFIG] rename_journals={opt.rename_journals} daily_folder={opt.daily_folder or '-'} flatten_pages={opt.flatten_pages} annotate_status={opt.annotate_status} dry_run={opt.dry_run}"
+        f"[CONFIG] rename_journals={opt.rename_journals} daily_folder={opt.daily_folder or '-'} annotate_status={opt.annotate_status} dry_run={opt.dry_run}"
     )
 
     plans = collect_files(opt)

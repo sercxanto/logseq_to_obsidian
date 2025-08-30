@@ -13,5 +13,5 @@ tags:
 - [x] Finished
 - [ ] Later task
 Paragraph line ^abc123
-See [[pages/Foo#^abc123]]
+See [[Foo#^abc123]]
 

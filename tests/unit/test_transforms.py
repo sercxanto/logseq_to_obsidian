@@ -76,12 +76,15 @@ def test_attach_block_ids_attaches_to_previous_content():
 
 @pytest.mark.req("REQ-BLOCKREF-001")
 @pytest.mark.req("REQ-LINKPATH-001")
+@pytest.mark.req("REQ-STRUCTURE-001")
 def test_replace_block_refs_builds_vault_relative_links(tmp_path):
     text = "See ((abc123))\n"
-    index = {"abc123": Path(tmp_path / "pages/Foo.md")}
-    in_to_out = {Path(tmp_path / "pages/Foo.md"): Path(tmp_path / "pages/Foo.md")}
+    src = Path(tmp_path / "pages/Foo.md")
+    dst = Path(tmp_path / "Foo.md")  # flattened
+    index = {"abc123": src}
+    in_to_out = {src: dst}
     out = l2o.replace_block_refs(text, index, in_to_out, tmp_path)
-    assert out.strip() == "[[pages/Foo#^abc123]]"
+    assert out.strip() == "[[Foo#^abc123]]"
 
 
 @pytest.mark.req("REQ-BLOCKREF-002")

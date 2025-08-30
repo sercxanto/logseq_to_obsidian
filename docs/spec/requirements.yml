@@ -75,7 +75,7 @@
 
 - id: REQ-STRUCTURE-001
   area: structure
-  statement: "With `--flatten-pages`, drop the leading `pages/` segment in output paths."
+  statement: "Place all files from `pages/` at the vault root, and expand `___` in filenames to subfolders (e.g., `a___b.md` → `a/b.md`)."
   status: active
 
 - id: REQ-STRUCTURE-002

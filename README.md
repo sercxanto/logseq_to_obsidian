@@ -4,7 +4,7 @@ Overview
 
 - Converts a Logseq vault (Markdown flavor) to Obsidian-friendly Markdown.
 - Handles page properties → YAML front matter, task statuses, block IDs, and block references.
-- Preserves folder structure by default; configurable options for daily notes and pages.
+- Preserves non-page folders; moves `pages/` content to the vault root.
 
 Features
 
@@ -33,7 +33,6 @@ python3 logseq_to_obsidian.py \
   --output /path/to/obsidian-vault \
   --rename-journals \
   --daily-folder "Daily Notes" \
-  --flatten-pages \
   --annotate-status \
   --dry-run
 ```
@@ -44,7 +43,7 @@ Common options
 - `--output`: Destination Obsidian vault directory (created if not exists).
 - `--rename-journals`: Convert journal filenames from `YYYY_MM_DD` to `YYYY-MM-DD`.
 - `--daily-folder <name>`: Move `journals/` into this folder in the output. If omitted, keeps `journals/`.
-- `--flatten-pages`: Move files from `pages/` to the output root (retains subfolders).
+- Pages are always flattened to the vault root; see "File placement rules" below.
 - `--annotate-status`: For non-`TODO/DONE` task states, append `(status: STATE)` after the task text.
 - `--dry-run`: Print planned changes without writing files.
 
@@ -60,6 +59,12 @@ Limitations
 - Complex block property drawers beyond `id::` are not transformed (left in place).
 - Skips Logseq's internal `logseq/` metadata folder.
 - Skips Logseq whiteboards (`whiteboards/`); a warning is emitted since Obsidian cannot read Logseq's whiteboard format.
+
+File placement rules
+
+- Pages: All files from Logseq's `pages/` are placed at the root of the Obsidian vault.
+- Nested paths: Logseq encodes subfolders in page filenames using three underscores `___`.
+  - Example: `pages/a___b.md` becomes `a/b.md`.
 
 Development
 
