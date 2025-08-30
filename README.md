@@ -58,6 +58,8 @@ Limitations
 
 - Does not parse or migrate the Logseq database; operates purely on Markdown files.
 - Complex block property drawers beyond `id::` are not transformed (left in place).
+- Skips Logseq's internal `logseq/` metadata folder.
+- Skips Logseq whiteboards (`whiteboards/`); a warning is emitted since Obsidian cannot read Logseq's whiteboard format.
 
 Development
 

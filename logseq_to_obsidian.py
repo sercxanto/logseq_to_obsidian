@@ -89,9 +89,16 @@ def collect_files(opt: Options) -> List[FilePlan]:
     plans: List[FilePlan] = []
     for root, dirs, files in os.walk(opt.input_dir):
         root_p = Path(root)
-        # Do not descend into the top-level `logseq/` metadata directory
-        if root_p == opt.input_dir and "logseq" in dirs:
-            dirs.remove("logseq")
+        # Do not descend into certain top-level metadata/content folders not useful in Obsidian
+        if root_p == opt.input_dir:
+            for skip in ("logseq", "whiteboards"):
+                if skip in dirs:
+                    dirs.remove(skip)
+                    if skip == "whiteboards":
+                        print("[WARN] Skipping top-level 'whiteboards/' directory (Logseq whiteboards are not supported)")
+                    elif skip == "logseq":
+                        # We keep warning behavior concise; logseq folder is silently skipped as metadata
+                        pass
         for fname in files:
             in_path = root_p / fname
             # Defensive skip: ignore any files under top-level `logseq/`
@@ -99,7 +106,7 @@ def collect_files(opt: Options) -> List[FilePlan]:
                 rel_first = (in_path.relative_to(opt.input_dir).parts or [None])[0]
             except ValueError:
                 rel_first = None
-            if rel_first == "logseq":
+            if rel_first in {"logseq", "whiteboards"}:
                 continue
             out_path = plan_output_path(in_path, opt)
             plans.append(FilePlan(in_path=in_path, out_path=out_path, is_markdown=is_markdown(in_path)))

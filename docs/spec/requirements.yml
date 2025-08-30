@@ -87,3 +87,8 @@
   area: structure
   statement: "Do not process or copy the top-level `logseq/` metadata directory from the source vault."
   status: active
+
+- id: REQ-STRUCTURE-004
+  area: structure
+  statement: "Do not process or copy the top-level `whiteboards/` directory; emit a warning if present."
+  status: active
