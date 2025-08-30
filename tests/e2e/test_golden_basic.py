@@ -33,4 +33,3 @@ def test_golden_with_options(tmp_path: Path):
 
     ok, msg = compare_trees(out, expected)
     assert ok, msg
-

@@ -66,4 +66,3 @@ def test_replace_block_refs_builds_vault_relative_links(tmp_path):
     in_to_out = {Path(tmp_path / "pages/Foo.md"): Path(tmp_path / "pages/Foo.md")}
     out = l2o.replace_block_refs(text, index, in_to_out, tmp_path)
     assert out.strip() == "[[pages/Foo#^abc123]]"
-

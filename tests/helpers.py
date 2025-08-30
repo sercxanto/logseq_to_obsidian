@@ -27,8 +27,8 @@ def _iter_files(root: Path) -> Iterable[Path]:
 
 
 def compare_trees(actual: Path, expected: Path) -> Tuple[bool, str]:
-    actual_set = {p for p in _iter_files(actual)}
-    expected_set = {p for p in _iter_files(expected)}
+    actual_set = set(_iter_files(actual))
+    expected_set = set(_iter_files(expected))
     if actual_set != expected_set:
         only_actual = sorted(str(p) for p in (actual_set - expected_set))
         only_expected = sorted(str(p) for p in (expected_set - actual_set))
@@ -47,4 +47,3 @@ def compare_trees(actual: Path, expected: Path) -> Tuple[bool, str]:
             if not filecmp.cmp(a, e, shallow=False):
                 return False, f"Binary mismatch for {rel}"
     return True, ""
-
