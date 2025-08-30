@@ -9,12 +9,28 @@ import yaml
 SPEC_PATH = Path("docs/spec/requirements.yml")
 
 
-def _load_requirement_ids() -> Set[str]:
+def _load_requirement_sets() -> tuple[Set[str], Set[str]]:
+    """Return (all_ids, active_ids) from the spec.
+
+    - all_ids: every requirement id present in the spec
+    - active_ids: only ids with status: active (enforced coverage)
+    """
     if not SPEC_PATH.exists():
-        return set()
+        return set(), set()
     data = yaml.safe_load(SPEC_PATH.read_text(encoding="utf-8")) or []
-    ids = {entry.get("id") for entry in data if isinstance(entry, dict) and entry.get("id")}
-    return ids
+    all_ids: Set[str] = set()
+    active_ids: Set[str] = set()
+    for entry in data:
+        if not isinstance(entry, dict):
+            continue
+        rid = entry.get("id")
+        if not isinstance(rid, str):
+            continue
+        all_ids.add(rid)
+        status = str(entry.get("status", "active")).lower()
+        if status == "active":
+            active_ids.add(rid)
+    return all_ids, active_ids
 
 
 def _load_manifest_ids() -> Dict[Path, Set[str]]:
@@ -28,13 +44,15 @@ def _load_manifest_ids() -> Dict[Path, Set[str]]:
 
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "req(id): Link this test to a requirement id from the spec")
-    config._req_spec_ids = _load_requirement_ids()  # type: ignore[attr-defined]
+    all_ids, active_ids = _load_requirement_sets()
+    config._req_all_ids = all_ids  # type: ignore[attr-defined]
+    config._req_active_ids = active_ids  # type: ignore[attr-defined]
     config._req_used_ids: Set[str] = set()  # type: ignore[attr-defined]
     config._req_tests_without: List[str] = []  # type: ignore[attr-defined]
 
 
 def pytest_collection_modifyitems(session: pytest.Session, config: pytest.Config, items: List[pytest.Item]) -> None:  # noqa: D401
-    spec_ids: Set[str] = getattr(config, "_req_spec_ids", set())
+    spec_ids: Set[str] = getattr(config, "_req_all_ids", set())
     used_ids: Set[str] = getattr(config, "_req_used_ids", set())
     tests_without: List[str] = getattr(config, "_req_tests_without", [])
 
@@ -55,12 +73,13 @@ def pytest_collection_modifyitems(session: pytest.Session, config: pytest.Config
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     config = session.config
-    spec_ids: Set[str] = getattr(config, "_req_spec_ids", set())
+    all_ids: Set[str] = getattr(config, "_req_all_ids", set())
+    active_ids: Set[str] = getattr(config, "_req_active_ids", set())
     used_ids: Set[str] = getattr(config, "_req_used_ids", set())
     tests_without: List[str] = getattr(config, "_req_tests_without", [])
 
-    unknown = sorted(id_ for id_ in used_ids if id_ not in spec_ids)
-    uncovered = sorted(id_ for id_ in spec_ids if id_ not in used_ids)
+    unknown = sorted(id_ for id_ in used_ids if id_ not in all_ids)
+    uncovered = sorted(id_ for id_ in active_ids if id_ not in used_ids)
 
     problems: List[str] = []
     if unknown:

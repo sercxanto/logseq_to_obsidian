@@ -75,3 +75,16 @@ Testing
 
 - Install dev deps: `poetry install --with dev --no-root`
 - Run unit and E2E tests: `poetry run pytest`
+
+Requirements Traceability
+
+- Spec file: `docs/spec/requirements.yml` lists requirement IDs and their status.
+- Status meanings:
+  - `active`: enforced; must be implemented and covered by tests.
+  - `planned`/`draft`: defined but not required yet; coverage not enforced.
+  - `deprecated`: no longer applicable; ignored by coverage.
+  - `experimental`: optional/behind a flag; coverage not enforced.
+- Tests link to requirements with `@pytest.mark.req("REQ-…")` and golden suites include a `manifest.yml` listing covered IDs.
+- The test run validates that:
+  - Every referenced requirement exists in the spec.
+  - All `active` requirements are covered by at least one test or golden manifest.
