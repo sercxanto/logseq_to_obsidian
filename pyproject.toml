@@ -1,0 +1,37 @@
+[tool.poetry]
+name = "logseq-to-obsidian"
+version = "0.1.0"
+description = "Convert a Logseq vault to Obsidian-friendly Markdown"
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.9"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.5.0"
+pytest = "^8.3.0"
+
+[tool.ruff]
+target-version = "py39"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+  "E",   # pycodestyle
+  "F",   # pyflakes
+  "I",   # isort (imports)
+  "N",   # pep8-naming
+  "B",   # flake8-bugbear
+  "C4",  # flake8-comprehensions
+]
+ignore = [
+  "E501",  # line length handled by formatter/line-length
+  "F841",  # allow assigned-but-unused (keeps script unchanged)
+]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = [
+  "tests",
+]
