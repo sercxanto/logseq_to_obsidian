@@ -161,3 +161,38 @@ def test_only_leading_properties_become_yaml_frontmatter():
     assert "title: A" in yaml_section
     # Later 'title:: B' should remain in the body, not turned into YAML
     assert "title:: B" in body
+
+
+@pytest.mark.req("REQ-TITLE-001")
+def test_title_equal_to_output_path_is_suppressed():
+    src = (
+        "title:: folder/note\n"
+        "\n"
+        "Body\n"
+    )
+    out = l2o.transform_markdown(src, annotate_status=False, expected_title_path="folder/note")
+    # No front matter should be present when the only property (title) is dropped
+    assert not out.startswith("---\n")
+    # And no title appears anywhere
+    assert "title:" not in out
+
+
+@pytest.mark.req("REQ-TITLE-001")
+def test_title_mismatch_warns_and_title_dropped(capsys):
+    src = (
+        "title:: Display Name\n"
+        "\n"
+        "Body\n"
+    )
+    out = l2o.transform_markdown(
+        src,
+        annotate_status=False,
+        expected_title_path="folder/note",
+        rel_path_for_warn=Path("pages/note.md"),
+    )
+    # Title removed; does not appear in aliases; YAML may be omitted
+    assert "title:" not in out
+    assert "aliases:" not in out or "Display Name" not in out
+    # Warning emitted
+    captured = capsys.readouterr()
+    assert "Title property mismatch" in captured.out

@@ -1,5 +1,4 @@
 ---
-title: Foo
 aliases:
   - AltFoo
   - Other

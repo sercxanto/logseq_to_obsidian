@@ -205,7 +205,7 @@ def emit_yaml_frontmatter(props: Dict[str, str]) -> Optional[str]:
         return None
     # Map known keys
     yaml_lines: List[str] = ["---"]
-    # title
+    # title (may be suppressed upstream if equal to file path)
     if "title" in props:
         yaml_lines.append(f"title: {props['title']}")
     # aliases
@@ -383,10 +383,31 @@ def replace_asset_images(text: str) -> str:
     return MD_IMAGE_RE.sub(repl, text)
 
 
-def transform_markdown(text: str, annotate_status: bool) -> str:
+def transform_markdown(
+    text: str,
+    annotate_status: bool,
+    expected_title_path: Optional[str] = None,
+    rel_path_for_warn: Optional[Path] = None,
+    warn_collector: Optional[List[str]] = None,
+) -> str:
     # Page frontmatter
     lines = text.splitlines(keepends=True)
     props, consumed = parse_page_properties(lines)
+    # If a title equals the vault-relative path (without extension), drop it to avoid
+    # redundant or conflicting titles in Obsidian. Otherwise, warn and drop it too
+    # (user should reconcile titles manually to avoid broken links).
+    if expected_title_path and (t := props.get("title")):
+        if t == expected_title_path:
+            # remove redundant title
+            props.pop("title", None)
+        else:
+            # warn for mismatches so the user can tidy up in Logseq
+            loc = f" ({rel_path_for_warn})" if rel_path_for_warn is not None else ""
+            msg = f"[WARN] Title property mismatch{loc}: '{t}' != '{expected_title_path}'"
+            print(msg)
+            if warn_collector is not None:
+                warn_collector.append(msg)
+            props.pop("title", None)
     yaml = emit_yaml_frontmatter(props)
 
     body_lines = lines[consumed:]
@@ -443,6 +464,7 @@ def main(argv: List[str]) -> int:
     pre_texts: Dict[Path, str] = {}
     in_to_out: Dict[Path, Path] = {pl.in_path: pl.out_path for pl in plans}
 
+    warn_messages: List[str] = []
     for pl in plans:
         if not pl.is_markdown:
             continue
@@ -452,7 +474,19 @@ def main(argv: List[str]) -> int:
             rel = pl.in_path
         print(f"[TRANSFORM] {rel}")
         raw = pl.in_path.read_text(encoding="utf-8")
-        transformed = transform_markdown(raw, annotate_status=opt.annotate_status)
+        # Compute the expected title as the vault-relative output path without extension
+        try:
+            rel_out = pl.out_path.relative_to(opt.output_dir)
+        except ValueError:
+            rel_out = pl.out_path
+        expected_title = rel_out.with_suffix("").as_posix()
+        transformed = transform_markdown(
+            raw,
+            annotate_status=opt.annotate_status,
+            expected_title_path=expected_title,
+            rel_path_for_warn=rel,
+            warn_collector=warn_messages,
+        )
         pre_texts[pl.in_path] = transformed
 
     block_index = build_block_index(pre_texts)
@@ -475,6 +509,8 @@ def main(argv: List[str]) -> int:
             copies += 1
 
     print(f"[DONE] Wrote {writes} markdown file(s), copied {copies} other file(s)")
+    if warn_messages:
+        print(f"[WARN] Conversion completed with {len(warn_messages)} warning(s). Review the messages above.")
     if opt.dry_run:
         print("[INFO] Dry run complete. No files were written.")
     return 0

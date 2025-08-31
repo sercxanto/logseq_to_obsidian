@@ -12,7 +12,7 @@ Features
 - Special mappings:
   - `alias::` or `aliases::` → `aliases: []` (array)
   - `tags::` → `tags: []` (array, without `#`)
-  - `title::` → `title:`
+  - `title::` → omitted (Obsidian only uses the filename as the note name). If the Logseq title mismatches the vault-relative output path, a warning is emitted so you can tidy it up.
 - Task markers:
   - `- TODO Something` → `- [ ] Something`
   - `- DONE Something` → `- [x] Something`

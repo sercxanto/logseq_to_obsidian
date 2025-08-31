@@ -23,6 +23,11 @@
   statement: "Only top-of-file, non-indented `key:: value` lines become YAML front matter; later or indented properties remain in the body."
   status: active
 
+- id: REQ-TITLE-001
+  area: frontmatter
+  statement: "Always drop `title::` from YAML; if it mismatches the vault-relative output path (without extension), emit a warning so the user can tidy up."
+  status: active
+
 - id: REQ-SPACING-001
   area: formatting
   statement: "Ensure exactly one blank line after YAML front matter; no extra leading blank lines before body."
