@@ -16,6 +16,7 @@ ID_PROP_RE = re.compile(r"^\s*id::\s*([A-Za-z0-9_-]+)\s*$")
 BLOCK_REF_RE = re.compile(r"\(\(([A-Za-z0-9_-]{6,})\)\)")
 JOURNAL_DATE_UNDERSCORE_RE = re.compile(r"^(\d{4})_(\d{2})_(\d{2})\.md$")
 JOURNAL_DATE_DASH_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})\.md$")
+EMBED_RE = re.compile(r"\{\{embed\s+(.*?)\}\}", flags=re.IGNORECASE)
 
 
 @dataclass
@@ -334,6 +335,28 @@ def replace_block_refs(text: str, index: Dict[str, Path], in_to_out: Dict[Path, 
     return replaced
 
 
+def replace_embeds(text: str) -> str:
+    """Convert Logseq embeds like {{embed [[Page]]}} or {{embed ((id))}} to Obsidian ![[...]].
+
+    Note: Replace block refs first so that ((id)) become [[path#^id]], then this wraps as ![[...]].
+    """
+    def repl(m: re.Match) -> str:
+        inner = m.group(1)
+        # Prefer the first wikilink inside
+        m_wiki = re.search(r"\[\[([^\]]+)\]\]", inner)
+        if m_wiki:
+            target = m_wiki.group(1).strip()
+            return f"![[{target}]]"
+        # Fallback: treat inner as a plain link target
+        target = inner.strip()
+        # Strip any leading 'See '
+        target = re.sub(r"^See\s+", "", target, flags=re.IGNORECASE)
+        # If already of the form Note#^id without brackets, wrap it
+        return f"![[{target}]]"
+
+    return EMBED_RE.sub(repl, text)
+
+
 def transform_markdown(text: str, annotate_status: bool) -> str:
     # Page frontmatter
     lines = text.splitlines(keepends=True)
@@ -416,6 +439,7 @@ def main(argv: List[str]) -> int:
         if pl.is_markdown:
             text = pre_texts.get(pl.in_path, pl.in_path.read_text(encoding="utf-8"))
             text = replace_block_refs(text, block_index, in_to_out, opt.output_dir)
+            text = replace_embeds(text)
             copy_or_write(pl.out_path, text, None, opt.dry_run)
             writes += 1
         else:

@@ -21,6 +21,9 @@ Features
   - `id:: <uuid>` lines are converted to Obsidian block anchors by appending `^<uuid>` to the owning block line.
 - Block references:
   - `((<uuid>))` → `[[<FileName>#^<uuid>]]` (resolved by scanning all files first).
+- Embeds:
+  - `{{embed ((<uuid>))}}` → `![[<FileName>#^<uuid>]]`
+  - `{{embed [[Some Page]]}}` → `![[Some Page]]`
 - Journals:
   - Renames `YYYY_MM_DD.md` → `YYYY-MM-DD.md` and can move journals to a specific folder.
 - Assets and other files are copied as-is.
@@ -86,6 +89,11 @@ Testing
 
 - Install dev deps: `poetry install --with dev --no-root`
 - Run unit and E2E tests: `poetry run pytest`
+
+Checks
+
+- Lint + tests: `poetry run python -m tasks`
+- Autofix + tests: `poetry run python -m tasks fix`
 
 Requirements Traceability
 

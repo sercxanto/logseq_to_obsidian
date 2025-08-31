@@ -36,3 +36,7 @@ addopts = "-q"
 testpaths = [
   "tests",
 ]
+
+#[tool.poetry.scripts]
+#check = "tasks:check"
+#fix = "tasks:fix"

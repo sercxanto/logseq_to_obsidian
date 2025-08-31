@@ -68,6 +68,16 @@
   statement: "Use vault-relative link targets without file extension, with forward slashes."
   status: active
 
+- id: REQ-EMBED-001
+  area: embeds
+  statement: "Convert `{{embed ((id))}}` to `![[path#^id]]` after resolving the block ref."
+  status: active
+
+- id: REQ-EMBED-002
+  area: embeds
+  statement: "Convert `{{embed [[Page]]}}` to `![[Page]]`."
+  status: active
+
 - id: REQ-PROPS-001
   area: properties
   statement: "Filter out block-level `collapsed::` properties; Obsidian stores collapse state outside Markdown."

@@ -110,6 +110,26 @@ def test_collapsed_property_is_filtered_on_block_level():
     assert "collapsed::" not in out
 
 
+@pytest.mark.req("REQ-EMBED-001")
+@pytest.mark.req("REQ-LINKPATH-001")
+def test_embed_block_ref_converts_to_obsidian_embed(tmp_path):
+    text = "{{embed ((abc123))}}\n"
+    src = Path(tmp_path / "pages/Foo.md")
+    dst = Path(tmp_path / "Foo.md")
+    index = {"abc123": src}
+    in_to_out = {src: dst}
+    replaced = l2o.replace_block_refs(text, index, in_to_out, tmp_path)
+    embedded = l2o.replace_embeds(replaced)
+    assert embedded.strip() == "![[Foo#^abc123]]"
+
+
+@pytest.mark.req("REQ-EMBED-002")
+def test_embed_page_link_converts_to_obsidian_embed():
+    text = "{{embed [[Foo]]}}\n"
+    embedded = l2o.replace_embeds(text)
+    assert embedded.strip() == "![[Foo]]"
+
+
 @pytest.mark.req("REQ-FRONTMATTER-005")
 def test_only_leading_properties_become_yaml_frontmatter():
     src = (
