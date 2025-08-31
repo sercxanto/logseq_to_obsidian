@@ -17,6 +17,7 @@ BLOCK_REF_RE = re.compile(r"\(\(([A-Za-z0-9_-]{6,})\)\)")
 JOURNAL_DATE_UNDERSCORE_RE = re.compile(r"^(\d{4})_(\d{2})_(\d{2})\.md$")
 JOURNAL_DATE_DASH_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})\.md$")
 EMBED_RE = re.compile(r"\{\{embed\s+(.*?)\}\}", flags=re.IGNORECASE)
+MD_IMAGE_RE = re.compile(r"!\[[^\]]*\]\(([^\)]+)\)")
 
 
 @dataclass
@@ -357,6 +358,31 @@ def replace_embeds(text: str) -> str:
     return EMBED_RE.sub(repl, text)
 
 
+def replace_asset_images(text: str) -> str:
+    """Convert Logseq image markdown pointing to assets/ into Obsidian embeds.
+
+    Examples:
+      - ![alt](../assets/image.png) -> ![[image.png]]
+      - ![alt](assets/image.png) -> ![[image.png]]
+    Other image links (http, data URIs, non-assets paths) are left unchanged.
+    """
+    def repl(m: re.Match) -> str:
+        url = m.group(1).strip()
+        low = url.lower()
+        if low.startswith("http://") or low.startswith("https://") or low.startswith("data:"):
+            return m.group(0)
+        # Normalize separators and strip leading ./ or ../ segments
+        path = url.replace("\\", "/")
+        # Quick check for /assets/ segment
+        if "/assets/" not in "/" + path.lstrip("./"):
+            return m.group(0)
+        # Extract basename
+        name = path.split("/")[-1]
+        return f"![[{name}]]"
+
+    return MD_IMAGE_RE.sub(repl, text)
+
+
 def transform_markdown(text: str, annotate_status: bool) -> str:
     # Page frontmatter
     lines = text.splitlines(keepends=True)
@@ -440,6 +466,7 @@ def main(argv: List[str]) -> int:
             text = pre_texts.get(pl.in_path, pl.in_path.read_text(encoding="utf-8"))
             text = replace_block_refs(text, block_index, in_to_out, opt.output_dir)
             text = replace_embeds(text)
+            text = replace_asset_images(text)
             copy_or_write(pl.out_path, text, None, opt.dry_run)
             writes += 1
         else:

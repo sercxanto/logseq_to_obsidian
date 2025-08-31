@@ -24,6 +24,8 @@ Features
 - Embeds:
   - `{{embed ((<uuid>))}}` → `![[<FileName>#^<uuid>]]`
   - `{{embed [[Some Page]]}}` → `![[Some Page]]`
+- Images in assets:
+  - `![alt](../assets/image.png)` or `![alt](assets/image.png)` → `![[image.png]]` (alt text is not preserved)
 - Journals:
   - Renames `YYYY_MM_DD.md` → `YYYY-MM-DD.md` and can move journals to a specific folder.
 - Assets and other files are copied as-is.

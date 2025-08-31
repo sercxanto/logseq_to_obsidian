@@ -8,4 +8,4 @@ aliases:: [[AltFoo]], Other
 Paragraph line
 id:: abc123
 See ((abc123))
-
+![alt](../assets/picture.png)

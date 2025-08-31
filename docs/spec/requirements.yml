@@ -78,6 +78,11 @@
   statement: "Convert `{{embed [[Page]]}}` to `![[Page]]`."
   status: active
 
+- id: REQ-IMAGE-001
+  area: images
+  statement: "Convert Logseq markdown image links to assets (e.g., `![alt](../assets/img.png)`) into Obsidian embeds `![[img.png]]`; alt text is dropped."
+  status: active
+
 - id: REQ-PROPS-001
   area: properties
   statement: "Filter out block-level `collapsed::` properties; Obsidian stores collapse state outside Markdown."

@@ -130,6 +130,18 @@ def test_embed_page_link_converts_to_obsidian_embed():
     assert embedded.strip() == "![[Foo]]"
 
 
+@pytest.mark.req("REQ-IMAGE-001")
+def test_markdown_image_in_assets_converts_to_obsidian_embed(tmp_path):
+    # paths relative to physical file location in Logseq pages
+    text = "![alt](../assets/picture.png)\n"
+    out = l2o.replace_asset_images(text)
+    assert out.strip() == "![[picture.png]]"
+    # Also support assets/picture.png form
+    text2 = "![x](assets/picture.png)\n"
+    out2 = l2o.replace_asset_images(text2)
+    assert out2.strip() == "![[picture.png]]"
+
+
 @pytest.mark.req("REQ-FRONTMATTER-005")
 def test_only_leading_properties_become_yaml_frontmatter():
     src = (
