@@ -63,6 +63,11 @@
   statement: "Use vault-relative link targets without file extension, with forward slashes."
   status: active
 
+- id: REQ-PROPS-001
+  area: properties
+  statement: "Filter out block-level `collapsed::` properties; Obsidian stores collapse state outside Markdown."
+  status: active
+
 - id: REQ-JOURNALS-001
   area: journals
   statement: "Always rename journal filenames from `YYYY_MM_DD.md` to `YYYY-MM-DD.md`."

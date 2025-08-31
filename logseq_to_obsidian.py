@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 PAGE_PROP_RE = re.compile(r"^([A-Za-z0-9_\-]+)::\s*(.*)\s*$")
+# Block properties may be indented under a list item in Logseq
+BLOCK_PROP_RE = re.compile(r"^\s*([A-Za-z0-9_\-]+)::\s*(.*)\s*$")
 TASK_RE = re.compile(r"^(?P<indent>\s*)([-*])\s+(?P<state>TODO|DONE|DOING|LATER|WAITING|CANCELLED)\s+(?P<rest>.*)$")
 ID_PROP_RE = re.compile(r"^\s*id::\s*([A-Za-z0-9_-]+)\s*$")
 BLOCK_REF_RE = re.compile(r"\(\(([A-Za-z0-9_-]{6,})\)\)")
@@ -272,9 +274,13 @@ def attach_block_ids(lines: List[str]) -> List[str]:
             continue
 
         # Track last content line (non-empty, not a property-only line)
-        if PAGE_PROP_RE.match(line):
+        m_prop = BLOCK_PROP_RE.match(line)
+        if m_prop:
             # Likely a property line (page/block); don't count as content
-            out.append(line)
+            key = m_prop.group(1).strip().lower()
+            # Filter out block-level 'collapsed::' properties as Obsidian stores collapse state outside Markdown
+            if key != "collapsed":
+                out.append(line)
             if last_content_idx is not None:
                 property_since_content = True
             continue

@@ -94,3 +94,17 @@ def test_unresolved_block_refs_are_left_unchanged(tmp_path):
     in_to_out = {}
     out = l2o.replace_block_refs(text, index, in_to_out, tmp_path)
     assert out == text
+
+
+@pytest.mark.req("REQ-PROPS-001")
+def test_collapsed_property_is_filtered_on_block_level():
+    src = (
+        "title:: X\n"
+        "\n"
+        "- Item 1\n"
+        "  collapsed:: true\n"
+        "- Item 2\n"
+    )
+    out = l2o.transform_markdown(src, annotate_status=False)
+    # Block-level collapsed line removed
+    assert "collapsed::" not in out

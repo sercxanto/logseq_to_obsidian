@@ -50,6 +50,7 @@ Notes and assumptions
 - Only Markdown (`.md`) files are transformed; other files are copied.
 - Block reference resolution requires that `id::` appears for referenced blocks in the source files.
 - This tool is conservative: it preserves unknown page properties in YAML.
+- Block-level `collapsed::` properties are ignored; Obsidian stores list collapse state outside Markdown.
 
 Limitations
 
