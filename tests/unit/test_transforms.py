@@ -108,3 +108,24 @@ def test_collapsed_property_is_filtered_on_block_level():
     out = l2o.transform_markdown(src, annotate_status=False)
     # Block-level collapsed line removed
     assert "collapsed::" not in out
+
+
+@pytest.mark.req("REQ-FRONTMATTER-005")
+def test_only_leading_properties_become_yaml_frontmatter():
+    src = (
+        "title:: A\n"
+        "\n"
+        "Body\n"
+        "\n"
+        "title:: B\n"
+    )
+    out = l2o.transform_markdown(src, annotate_status=False)
+    # Expect YAML front matter with title: A only
+    assert out.startswith("---\n")
+    parts = out.split("---\n")
+    assert len(parts) >= 3
+    yaml_section = parts[1]
+    body = parts[2]
+    assert "title: A" in yaml_section
+    # Later 'title:: B' should remain in the body, not turned into YAML
+    assert "title:: B" in body

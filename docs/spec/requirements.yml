@@ -18,6 +18,11 @@
   statement: "Preserve unknown page properties as scalar YAML fields."
   status: active
 
+- id: REQ-FRONTMATTER-005
+  area: frontmatter
+  statement: "Only top-of-file, non-indented `key:: value` lines become YAML front matter; later or indented properties remain in the body."
+  status: active
+
 - id: REQ-SPACING-001
   area: formatting
   statement: "Ensure exactly one blank line after YAML front matter; no extra leading blank lines before body."
