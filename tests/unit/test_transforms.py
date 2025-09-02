@@ -196,3 +196,57 @@ def test_title_mismatch_warns_and_title_dropped(capsys):
     # Warning emitted
     captured = capsys.readouterr()
     assert "Title property mismatch" in captured.out
+
+
+@pytest.mark.req("REQ-HEADCHILD-001")
+@pytest.mark.req("REQ-HEADCHILD-002")
+@pytest.mark.req("REQ-HEADCHILD-003")
+def test_heading_followed_by_indented_list_becomes_list_heading():
+    src = (
+        "# Heading without '-' at the beginning\n"
+        "\t- list item 1\n"
+        "\t- list item 2\n"
+    )
+    out = l2o.transform_markdown(src, annotate_status=False)
+    lines = out.splitlines()
+    assert lines[0].startswith("- # Heading without '-'")
+    assert lines[1] == "\t- list item 1"
+    assert lines[2] == "\t- list item 2"
+
+
+@pytest.mark.req("REQ-HEADCHILD-001")
+def test_heading_followed_by_tab_indented_list_becomes_list_heading():
+    src = (
+        "# Heading with tabs\n"
+        "\t- item A\n"
+        "\t\t- item B\n"
+    )
+    out = l2o.transform_markdown(src, annotate_status=False)
+    lines = out.splitlines()
+    assert lines[0].startswith("- # Heading with tabs")
+    # Child lines remain with tabs; we only prefix the heading
+    assert lines[1].startswith("\t- item A")
+    assert lines[2].startswith("\t\t- item B")
+
+
+@pytest.mark.req("REQ-HEADCHILD-002")
+def test_heading_already_inside_list_is_unchanged():
+    src = (
+        "- # Already a list heading\n"
+        "\t- child\n"
+    )
+    out = l2o.transform_markdown(src, annotate_status=False)
+    assert out.startswith("- # Already a list heading")
+
+
+@pytest.mark.req("REQ-HEADCHILD-003")
+def test_no_change_inside_code_fence():
+    src = (
+        "```\n"
+        "# Not a real heading\n"
+        "\t- list item\n"
+        "```\n"
+    )
+    out = l2o.transform_markdown(src, annotate_status=False)
+    # Fenced block should remain untouched
+    assert out == src

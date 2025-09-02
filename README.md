@@ -26,6 +26,9 @@ Features
   - `{{embed [[Some Page]]}}` → `![[Some Page]]`
 - Images in assets:
   - `![alt](../assets/image.png)` or `![alt](assets/image.png)` → `![[image.png]]` (alt text is not preserved)
+- Headings followed by indented lists:
+  - If a heading line is immediately followed by an indented list (≥4 spaces or tabs), prefix the heading with `- ` (i.e., `- # Heading`).
+  - Rationale: Logseq treats such lists as children of the heading; Obsidian otherwise renders them as quoted/code blocks. This keeps folding behavior aligned.
 - Journals:
   - Renames `YYYY_MM_DD.md` → `YYYY-MM-DD.md` and can move journals to a specific folder.
 - Assets and other files are copied as-is.
@@ -63,6 +66,7 @@ Limitations
 - Complex block property drawers beyond `id::` are not transformed (left in place).
 - Skips Logseq's internal `logseq/` metadata folder.
 - Skips Logseq whiteboards (`whiteboards/`); a warning is emitted since Obsidian cannot read Logseq's whiteboard format.
+ - Only normalizes heading + indented list patterns outside fenced code blocks; headings already inside list items are left unchanged.
 
 File placement rules
 

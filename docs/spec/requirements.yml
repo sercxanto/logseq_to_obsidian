@@ -122,3 +122,18 @@
   area: structure
   statement: "Do not process or copy the top-level `whiteboards/` directory; emit a warning if present."
   status: active
+
+- id: REQ-HEADCHILD-001
+  area: formatting
+  statement: "When a heading is immediately followed by an indented list (≥4 spaces or tabs equivalent), prefix the heading with '- ' so it becomes a list item containing the heading."
+  status: active
+
+- id: REQ-HEADCHILD-002
+  area: formatting
+  statement: "Do not modify headings already inside a list item (e.g., lines starting with '- #')."
+  status: active
+
+- id: REQ-HEADCHILD-003
+  area: formatting
+  statement: "Do not alter fenced code blocks when normalizing heading + child lists."
+  status: active

@@ -299,6 +299,83 @@ def attach_block_ids(lines: List[str]) -> List[str]:
     return out
 
 
+def _is_fence(line: str) -> bool:
+    s = line.lstrip()
+    return s.startswith("```")
+
+
+def _indent_width(line: str) -> tuple[int, int]:
+    """Return (visual_indent_width, index_after_indent) counting tabs as 4 spaces."""
+    width = 0
+    i = 0
+    while i < len(line) and line[i] in (" ", "\t"):
+        if line[i] == " ":
+            width += 1
+        else:  # tab
+            width += 4
+        i += 1
+    return width, i
+
+
+def _looks_like_list_item_after(line: str, start: int) -> bool:
+    """Check if line[start:] begins with a list marker like '-', '*', '+', or '1.'/'1)'."""
+    s = line[start:]
+    if not s:
+        return False
+    c = s[0]
+    if c in "-*+":
+        return len(s) > 1 and s[1].isspace()
+    # numbered list: digits then '.' or ')' then space
+    j = 0
+    while j < len(s) and s[j].isdigit():
+        j += 1
+    if j > 0 and j < len(s) and s[j] in ".)":
+        j += 1
+        return j < len(s) and s[j].isspace()
+    return False
+
+
+def fix_heading_child_lists(lines: List[str]) -> List[str]:
+    """If a heading is immediately followed by a 4+ space indented list, prefix the heading with "- ".
+
+    - Leaves headings already inside a list item (e.g., "- # Heading") untouched.
+    - Skips fenced code blocks.
+    - Does not alter the indentation of the child list; only the heading line is changed.
+    """
+    out: List[str] = []
+    i = 0
+    in_fence = False
+    n = len(lines)
+    while i < n:
+        line = lines[i]
+        if _is_fence(line):
+            in_fence = not in_fence
+            out.append(line)
+            i += 1
+            continue
+        if not in_fence:
+            # Detect heading not already in a list item
+            m = re.match(r"^(?P<indent>\s*)(?P<head>#+)\s+.+$", line)
+            if m:
+                indent = m.group("indent")
+                # If the first non-space char isn't '#', it's inside a list or something else; skip
+                stripped = line[len(indent):]
+                if stripped.startswith("#"):
+                    # Look ahead to next non-blank, non-fence line
+                    j = i + 1
+                    while j < n and lines[j].strip() == "":
+                        j += 1
+                    if j < n and not _is_fence(lines[j]):
+                        # 4+ visual spaces (tabs count as 4) before a list marker
+                        width, idx = _indent_width(lines[j])
+                        if width >= 4 and _looks_like_list_item_after(lines[j], idx):
+                            # Transform heading to list item heading
+                            line = f"{indent}- {stripped}"
+        out.append(line)
+        i += 1
+    return out
+
+
 def build_block_index(file_texts: Dict[Path, str]) -> Dict[str, Path]:
     # Map id -> file path where the id anchor will live
     index: Dict[str, Path] = {}
@@ -414,6 +491,8 @@ def transform_markdown(
     # Drop leading blank lines in body; YAML already provides a separating blank line
     while body_lines and not body_lines[0].strip():
         body_lines = body_lines[1:]
+    # Normalize heading + indented child list cases by making the heading a list item ("- # Heading")
+    body_lines = fix_heading_child_lists(body_lines)
     # tasks
     body_lines = [transform_tasks(ln, annotate_status) for ln in body_lines]
     # block ids
