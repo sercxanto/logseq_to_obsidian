@@ -11,7 +11,6 @@ from tests.helpers import compare_trees, run_converter
 @pytest.mark.req("REQ-SPACING-001")
 @pytest.mark.req("REQ-TASKS-001")
 @pytest.mark.req("REQ-TASKS-002")
-@pytest.mark.req("REQ-TASKS-003")
 @pytest.mark.req("REQ-BLOCKID-001")
 @pytest.mark.req("REQ-BLOCKREF-001")
 @pytest.mark.req("REQ-LINKPATH-001")
@@ -35,7 +34,8 @@ def test_golden_basic(tmp_path: Path):
 @pytest.mark.req("REQ-SPACING-001")
 @pytest.mark.req("REQ-TASKS-001")
 @pytest.mark.req("REQ-TASKS-002")
-@pytest.mark.req("REQ-TASKS-003")
+@pytest.mark.req("REQ-TASKS-004")
+@pytest.mark.req("REQ-TASKS-005")
 @pytest.mark.req("REQ-BLOCKID-001")
 @pytest.mark.req("REQ-BLOCKREF-001")
 @pytest.mark.req("REQ-LINKPATH-001")
@@ -53,7 +53,6 @@ def test_golden_with_options(tmp_path: Path):
         out,
         "--daily-folder",
         "Daily Notes",
-        "--annotate-status",
     )
     assert code == 0
 

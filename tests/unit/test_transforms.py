@@ -44,14 +44,139 @@ def test_emit_yaml_frontmatter_mapping():
 
 @pytest.mark.req("REQ-TASKS-001")
 @pytest.mark.req("REQ-TASKS-002")
-@pytest.mark.req("REQ-TASKS-003")
-def test_transform_tasks_all_states():
-    assert l2o.transform_tasks("- TODO Work\n", False) == "- [ ] Work\n"
-    assert l2o.transform_tasks("- DONE Done\n", False) == "- [x] Done\n"
-    # Other state without annotate
-    assert l2o.transform_tasks("- LATER Soon\n", False) == "- [ ] Soon\n"
-    # Other state with annotate
-    assert l2o.transform_tasks("- LATER Soon\n", True) == "- [ ] Soon (status: LATER)\n"
+@pytest.mark.req("REQ-TASKS-004")
+@pytest.mark.req("REQ-TASKS-005")
+@pytest.mark.req("REQ-TASKS-006")
+def test_transform_tasks_all_states_simple_mapping():
+    # Unchecked states
+    assert l2o.transform_tasks("- TODO Work\n") == "- [ ] Work\n"
+    assert l2o.transform_tasks("- DOING Work\n") == "- [ ] Work\n"
+    assert l2o.transform_tasks("- LATER Soon\n") == "- [ ] Soon\n"
+    assert l2o.transform_tasks("- NOW Now\n") == "- [ ] Now\n"
+    assert l2o.transform_tasks("- WAIT Hold\n") == "- [ ] Hold\n"
+    assert l2o.transform_tasks("- WAITING Hold\n") == "- [ ] Hold\n"
+    assert l2o.transform_tasks("- IN-PROGRESS Going\n") == "- [ ] Going\n"
+    # Checked states
+    assert l2o.transform_tasks("- DONE Done\n") == "- [x] Done\n"
+    assert l2o.transform_tasks("- CANCELED Skip\n") == "- [x] Skip\n"
+    assert l2o.transform_tasks("- CANCELLED Skip\n") == "- [x] Skip\n"
+
+
+@pytest.mark.req("REQ-TASKS-PRIO-001")
+@pytest.mark.req("REQ-TASKS-PRIO-002")
+def test_priority_mapping_emoji():
+    assert l2o.transform_tasks("- TODO [#A] Alpha\n", tasks_format="emoji") == "- [ ] Alpha ⏫\n"
+    assert l2o.transform_tasks("- DOING [#B] Beta\n", tasks_format="emoji") == "- [ ] Beta 🔼\n"
+    assert l2o.transform_tasks("- DONE [#C] Gamma\n", tasks_format="emoji") == "- [x] Gamma 🔽\n"
+    # No priority yields no emoji
+    assert l2o.transform_tasks("- LATER Delta\n", tasks_format="emoji") == "- [ ] Delta\n"
+
+
+@pytest.mark.req("REQ-TASKS-PRIO-001")
+@pytest.mark.req("REQ-TASKS-PRIO-003")
+def test_priority_mapping_dataview():
+    assert l2o.transform_tasks("- TODO [#A] Alpha\n", tasks_format="dataview") == "- [ ] Alpha [priority::high]\n"
+    assert l2o.transform_tasks("- DOING [#B] Beta\n", tasks_format="dataview") == "- [ ] Beta [priority::medium]\n"
+    assert l2o.transform_tasks("- DONE [#C] Gamma\n", tasks_format="dataview") == "- [x] Gamma [priority::low]\n"
+    # No priority means no field emitted
+    assert l2o.transform_tasks("- LATER Delta\n", tasks_format="dataview") == "- [ ] Delta\n"
+
+
+@pytest.mark.req("REQ-TASKS-PRIO-001")
+@pytest.mark.req("REQ-TASKS-PRIO-002")
+def test_priority_precedes_attached_block_anchor():
+    src = (
+        "- TODO [#A] Important task\n"
+        "id:: prio123\n"
+    )
+    out = l2o.transform_markdown(src, tasks_format="emoji")
+    lines = out.splitlines()
+    assert lines[0].endswith("⏫ ^prio123")
+
+
+@pytest.mark.req("REQ-TASKS-PRIO-004")
+def test_priority_only_recognized_when_after_state():
+    # Priority appears later in the text, not directly after state → ignored
+    src1 = "- TODO Do this [#A]\n"
+    out1 = l2o.transform_tasks(src1, tasks_format="emoji")
+    assert out1 == "- [ ] Do this [#A]\n"
+
+    # Same for dataview format: no [priority::...] emitted
+    out2 = l2o.transform_tasks(src1, tasks_format="dataview")
+    assert out2 == "- [ ] Do this [#A]\n"
+
+
+@pytest.mark.req("REQ-TASKS-DATE-001")
+@pytest.mark.req("REQ-TASKS-DATE-003")
+def test_scheduled_with_time_and_repeat_emoji():
+    src = "- TODO SCHEDULED: <2024-09-10 Tue 07:00 .+1d>\n"
+    out = l2o.transform_tasks(src, tasks_format="emoji")
+    assert out.strip() == "- [ ] ⏳ 2024-09-10 07:00 🔁 every 1 day when done"
+
+
+@pytest.mark.req("REQ-TASKS-DATE-002")
+@pytest.mark.req("REQ-TASKS-DATE-003")
+def test_deadline_without_time_repeat_dataview():
+    src = "- TODO DEADLINE: <2024-09-15 ++2w>\n"
+    out = l2o.transform_tasks(src, tasks_format="dataview")
+    assert out.strip() == "- [ ] [due::2024-09-15] [repeat::every 2 weeks when done]"
+
+
+@pytest.mark.req("REQ-TASKS-DATE-004")
+@pytest.mark.req("REQ-TASKS-DATE-005")
+def test_dates_removed_and_appended_before_anchor():
+    src = (
+        "- TODO [#A] Title SCHEDULED: <2024-09-20 Fri +1m>\n"
+        "id:: aid123\n"
+    )
+    out = l2o.transform_markdown(src, tasks_format="emoji")
+    lines = out.splitlines()
+    # Expect: checkbox, title, priority, scheduled, repeat, then anchor
+    assert lines[0].startswith("- [ ] Title ⏫ ⏳ 2024-09-20")
+    assert "🔁 every 1 month" in lines[0]
+    assert lines[0].endswith("^aid123")
+
+
+@pytest.mark.req("REQ-TASKS-DATE-006")
+def test_both_scheduled_and_deadline_emitted():
+    src = "- TODO SCHEDULED: <2024-09-10> and also DEADLINE: <2024-09-15>\n"
+    out = l2o.transform_tasks(src, tasks_format="emoji")
+    assert out.strip().endswith("⏳ 2024-09-10 📅 2024-09-15")
+
+
+@pytest.mark.req("REQ-TASKS-DATE-007")
+def test_scheduled_on_following_line_same_indent():
+    src = (
+        "- TODO Do stuff\n"
+        "  SCHEDULED: <2024-12-23 Mon>\n"
+    )
+    out = l2o.transform_markdown(src, tasks_format="emoji")
+    lines = out.splitlines()
+    assert lines[0] == "- [ ] Do stuff ⏳ 2024-12-23"
+    # The continuation line only included the date; it should be removed entirely
+    assert len(lines) == 1
+
+
+@pytest.mark.req("REQ-TASKS-006")
+@pytest.mark.req("REQ-TASKS-001")
+def test_task_recognized_at_nested_indentation():
+    src = "  \t  - TODO Nested\n"  # mix of spaces and tab before '-'
+    out = l2o.transform_markdown(src)
+    assert out == "  \t  - [ ] Nested\n"
+
+
+@pytest.mark.req("REQ-TASKS-DATE-007")
+def test_deeper_indent_is_not_continuation():
+    src = (
+        "  - TODO Parent\n"
+        "  SCHEDULED: <2024-01-02>\n"
+        "    - Child bullet\n"
+    )
+    out = l2o.transform_markdown(src, tasks_format="emoji")
+    lines = out.splitlines()
+    assert lines[0] == "  - [ ] Parent ⏳ 2024-01-02"
+    # Child bullet remains as is on its own line
+    assert lines[1] == "    - Child bullet"
 
 
 @pytest.mark.req("REQ-BLOCKID-001")
@@ -105,7 +230,7 @@ def test_collapsed_property_is_filtered_on_block_level():
         "  collapsed:: true\n"
         "- Item 2\n"
     )
-    out = l2o.transform_markdown(src, annotate_status=False)
+    out = l2o.transform_markdown(src)
     # Block-level collapsed line removed
     assert "collapsed::" not in out
 
@@ -151,7 +276,7 @@ def test_only_leading_properties_become_yaml_frontmatter():
         "\n"
         "title:: B\n"
     )
-    out = l2o.transform_markdown(src, annotate_status=False)
+    out = l2o.transform_markdown(src)
     # Expect YAML front matter with title: A only
     assert out.startswith("---\n")
     parts = out.split("---\n")
@@ -170,7 +295,7 @@ def test_title_equal_to_output_path_is_suppressed():
         "\n"
         "Body\n"
     )
-    out = l2o.transform_markdown(src, annotate_status=False, expected_title_path="folder/note")
+    out = l2o.transform_markdown(src, expected_title_path="folder/note")
     # No front matter should be present when the only property (title) is dropped
     assert not out.startswith("---\n")
     # And no title appears anywhere
@@ -186,7 +311,6 @@ def test_title_mismatch_warns_and_title_dropped(capsys):
     )
     out = l2o.transform_markdown(
         src,
-        annotate_status=False,
         expected_title_path="folder/note",
         rel_path_for_warn=Path("pages/note.md"),
     )
@@ -207,7 +331,7 @@ def test_heading_followed_by_indented_list_becomes_list_heading():
         "\t- list item 1\n"
         "\t- list item 2\n"
     )
-    out = l2o.transform_markdown(src, annotate_status=False)
+    out = l2o.transform_markdown(src)
     lines = out.splitlines()
     assert lines[0].startswith("- # Heading without '-'")
     assert lines[1] == "\t- list item 1"
@@ -221,7 +345,7 @@ def test_heading_followed_by_tab_indented_list_becomes_list_heading():
         "\t- item A\n"
         "\t\t- item B\n"
     )
-    out = l2o.transform_markdown(src, annotate_status=False)
+    out = l2o.transform_markdown(src)
     lines = out.splitlines()
     assert lines[0].startswith("- # Heading with tabs")
     # Child lines remain with tabs; we only prefix the heading
@@ -235,7 +359,7 @@ def test_heading_already_inside_list_is_unchanged():
         "- # Already a list heading\n"
         "\t- child\n"
     )
-    out = l2o.transform_markdown(src, annotate_status=False)
+    out = l2o.transform_markdown(src)
     assert out.startswith("- # Already a list heading")
 
 
@@ -247,6 +371,6 @@ def test_no_change_inside_code_fence():
         "\t- list item\n"
         "```\n"
     )
-    out = l2o.transform_markdown(src, annotate_status=False)
+    out = l2o.transform_markdown(src)
     # Fenced block should remain untouched
     assert out == src

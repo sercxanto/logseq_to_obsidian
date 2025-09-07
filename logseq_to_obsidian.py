@@ -11,13 +11,31 @@ from typing import Dict, List, Optional, Tuple
 PAGE_PROP_RE = re.compile(r"^([A-Za-z0-9_\-]+)::\s*(.*)\s*$")
 # Block properties may be indented under a list item in Logseq
 BLOCK_PROP_RE = re.compile(r"^\s*([A-Za-z0-9_\-]+)::\s*(.*)\s*$")
-TASK_RE = re.compile(r"^(?P<indent>\s*)([-*])\s+(?P<state>TODO|DONE|DOING|LATER|WAITING|CANCELLED)\s+(?P<rest>.*)$")
+# Match only hyphen list items with uppercase state tokens and optional priority token right after the state
+TASK_RE = re.compile(
+    r"^(?P<indent>\s*)-\s+"
+    r"(?P<state>TODO|DONE|DOING|LATER|NOW|WAIT|WAITING|IN-PROGRESS|CANCELED|CANCELLED)\b"
+    r"(?:\s+\[#(?P<prio>[ABC])\])?\s*"
+    r"(?P<rest>.*)$"
+)
 ID_PROP_RE = re.compile(r"^\s*id::\s*([A-Za-z0-9_-]+)\s*$")
 BLOCK_REF_RE = re.compile(r"\(\(([A-Za-z0-9_-]{6,})\)\)")
 JOURNAL_DATE_UNDERSCORE_RE = re.compile(r"^(\d{4})_(\d{2})_(\d{2})\.md$")
 JOURNAL_DATE_DASH_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})\.md$")
 EMBED_RE = re.compile(r"\{\{embed\s+(.*?)\}\}", flags=re.IGNORECASE)
 MD_IMAGE_RE = re.compile(r"!\[[^\]]*\]\(([^\)]+)\)")
+SCHED_DEAD_RE = re.compile(
+    r"(?P<kind>SCHEDULED|DEADLINE)\s*:??\s*"  # keyword + optional ':'
+    r"<\s*"
+    r"(?P<date>\d{4}-\d{2}-\d{2})"  # YYYY-MM-DD
+    r"(?:\s+\w{3})?"  # optional day-of-week token
+    r"(?:\s+(?P<time>\d{2}:\d{2}))?"  # optional HH:MM
+    r"(?:\s+(?:(?P<rep_kind>\.\+|\+\+|\+)"  # repeater kind .+ / ++ / +
+    r"(?P<rep_num>\d+)"  # number
+    r"(?P<rep_unit>[ymwdh])))?"  # unit
+    r"\s*>",
+    flags=re.IGNORECASE,
+)
 
 
 @dataclass
@@ -25,8 +43,8 @@ class Options:
     input_dir: Path
     output_dir: Path
     daily_folder: Optional[str]
-    annotate_status: bool
     dry_run: bool
+    tasks_format: str  # 'emoji' or 'dataview'
 
 
 @dataclass
@@ -41,15 +59,20 @@ def parse_args(argv: List[str]) -> Options:
     p.add_argument("--input", required=True, help="Path to Logseq vault root")
     p.add_argument("--output", required=True, help="Path to destination Obsidian vault root")
     p.add_argument("--daily-folder", default=None, help="Move journals into this folder name in output")
-    p.add_argument("--annotate-status", action="store_true", help="Annotate non-TODO/DONE statuses on tasks")
+    p.add_argument(
+        "--tasks-format",
+        choices=["emoji", "dataview"],
+        default="emoji",
+        help="Format for Tasks plugin metadata (priority, dates)",
+    )
     p.add_argument("--dry-run", action="store_true", help="Do not write files; print plan only")
     args = p.parse_args(argv)
     return Options(
         input_dir=Path(args.input).resolve(),
         output_dir=Path(args.output).resolve(),
         daily_folder=args.daily_folder,
-        annotate_status=bool(args.annotate_status),
         dry_run=bool(args.dry_run),
+        tasks_format=str(args.tasks_format),
     )
 
 
@@ -236,21 +259,124 @@ def emit_yaml_frontmatter(props: Dict[str, str]) -> Optional[str]:
     return "\n".join(yaml_lines) + "\n\n"
 
 
-def transform_tasks(line: str, annotate_status: bool) -> str:
+def _map_priority_token(letter: Optional[str], tasks_format: str) -> str:
+    if not letter:
+        return ""
+    if tasks_format == "emoji":
+        return {"A": " ⏫", "B": " 🔼", "C": " 🔽"}.get(letter, "")
+    # dataview style inline field in brackets, no space after '::'
+    mapping = {"A": "high", "B": "medium", "C": "low"}
+    level = mapping.get(letter)
+    return f" [priority::{level}]" if level else ""
+
+
+def transform_tasks(line: str, tasks_format: str = "emoji") -> str:
+    """Transform Logseq task states to Obsidian checklist items.
+
+    - Recognizes only hyphen list items with uppercase states.
+    - Maps DONE and CANCELED/CANCELLED to checked; everything else (TODO, DOING, LATER, NOW, WAIT, WAITING, IN-PROGRESS) to unchecked.
+    """
     m = TASK_RE.match(line)
     if not m:
         return line
     indent = m.group("indent")
     state = m.group("state")
+    prio = m.group("prio")
     rest = m.group("rest")
-    if state == "TODO":
-        return f"{indent}- [ ] {rest}\n"
-    if state == "DONE":
-        return f"{indent}- [x] {rest}\n"
-    # Other states
-    if annotate_status:
-        return f"{indent}- [ ] {rest} (status: {state})\n"
-    return f"{indent}- [ ] {rest}\n"
+    # Extract scheduled/deadline and optional repeater from the remaining text
+    cleaned, sched, due, repeat = _extract_dates_and_repeat(rest)
+    prio_suffix = _map_priority_token(prio, tasks_format)
+    date_suffix = _format_dates_suffix(sched, due, repeat, tasks_format)
+    # Build base without trailing space when no remaining text
+    if state in {"DONE", "CANCELED", "CANCELLED"}:
+        base = f"{indent}- [x]"
+    else:
+        base = f"{indent}- [ ]"
+    if cleaned:
+        base += f" {cleaned}"
+    return f"{base}{prio_suffix}{date_suffix}\n"
+
+
+def _plural(unit: str, n: int) -> str:
+    names = {
+        "y": "year",
+        "m": "month",
+        "w": "week",
+        "d": "day",
+        "h": "hour",
+    }
+    base = names.get(unit, unit)
+    return base if n == 1 else base + "s"
+
+
+def _extract_dates_and_repeat(
+    text: str,
+    preserve_whitespace: bool = False,
+) -> tuple[str, Optional[tuple[str, Optional[str]]], Optional[tuple[str, Optional[str]]], Optional[tuple[str, int, str]]]:
+    """Return (cleaned_text, scheduled(date,time), due(date,time), repeat(kind,num,unit)).
+
+    - Only the first SCHEDULED and first DEADLINE are captured.
+    - Repeater captured from the first date occurrence that defines one; if both define, prefer the first encountered.
+    - Removes the matched tokens from the text and normalizes surrounding spaces.
+    """
+    scheduled: Optional[tuple[str, Optional[str]]] = None
+    due: Optional[tuple[str, Optional[str]]] = None
+    repeat: Optional[tuple[str, int, str]] = None  # (kind, num, unit)
+
+    def repl(m: re.Match) -> str:
+        nonlocal scheduled, due, repeat
+        kind = m.group("kind").upper()
+        date = m.group("date")
+        time = m.group("time")
+        rep_kind = m.group("rep_kind")
+        rep_num = m.group("rep_num")
+        rep_unit = m.group("rep_unit")
+        if kind == "SCHEDULED" and scheduled is None:
+            scheduled = (date, time)
+        elif kind == "DEADLINE" and due is None:
+            due = (date, time)
+        # Capture the first repeater encountered
+        if repeat is None and rep_kind and rep_num and rep_unit:
+            repeat = (rep_kind, int(rep_num), rep_unit)
+        return ""  # remove this token
+
+    cleaned = SCHED_DEAD_RE.sub(repl, text)
+    if not preserve_whitespace:
+        # Squash multiple spaces and trim for head lines
+        cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
+    return cleaned, scheduled, due, repeat
+
+
+def _format_dates_suffix(
+    scheduled: Optional[tuple[str, Optional[str]]],
+    due: Optional[tuple[str, Optional[str]]],
+    repeat: Optional[tuple[str, int, str]],
+    tasks_format: str,
+) -> str:
+    parts: List[str] = []
+    def fmt_datetime(dt: tuple[str, Optional[str]]) -> str:
+        d, t = dt
+        return f"{d} {t}" if t else d
+
+    if tasks_format == "emoji":
+        if scheduled:
+            parts.append(f" ⏳ {fmt_datetime(scheduled)}")
+        if due:
+            parts.append(f" 📅 {fmt_datetime(due)}")
+        if repeat:
+            kind, num, unit = repeat
+            when_done = " when done" if kind in (".+", "++") else ""
+            parts.append(f" 🔁 every {num} {_plural(unit, num)}{when_done}")
+    else:  # dataview
+        if scheduled:
+            parts.append(f" [scheduled::{fmt_datetime(scheduled)}]")
+        if due:
+            parts.append(f" [due::{fmt_datetime(due)}]")
+        if repeat:
+            kind, num, unit = repeat
+            when_done = " when done" if kind in (".+", "++") else ""
+            parts.append(f" [repeat::every {num} {_plural(unit, num)}{when_done}]")
+    return "".join(parts)
 
 
 def attach_block_ids(lines: List[str]) -> List[str]:
@@ -460,12 +586,75 @@ def replace_asset_images(text: str) -> str:
     return MD_IMAGE_RE.sub(repl, text)
 
 
+def _process_task_lines_multiline(lines: List[str], tasks_format: str) -> List[str]:
+    out: List[str] = []
+    i = 0
+    n = len(lines)
+    while i < n:
+        line = lines[i]
+        m = TASK_RE.match(line)
+        if not m:
+            out.append(line)
+            i += 1
+            continue
+        indent = m.group("indent")
+        state = m.group("state")
+        prio = m.group("prio")
+        rest = m.group("rest")
+
+        cleaned, sched, due, repeat = _extract_dates_and_repeat(rest)
+        cont_keep: List[str] = []
+        j = i + 1
+        while j < n:
+            nxt = lines[j]
+            # Stop on blank line
+            if not nxt.strip():
+                break
+            # Must have at least the task's indent to be a continuation of the logical line
+            if not nxt.startswith(indent):
+                break
+            # Slice off the task's indent; any additional indent on the continuation is preserved in 'after'
+            after = nxt[len(indent) :]
+            # Continuation lines have no leading '-' after the indent
+            if after.startswith("-"):
+                break
+            # Extract any dates/repeat from the continuation content (strip trailing newline first)
+            cont_text = after.rstrip("\n")
+            c2, s2, d2, r2 = _extract_dates_and_repeat(cont_text, preserve_whitespace=True)
+            if sched is None and s2 is not None:
+                sched = s2
+            if due is None and d2 is not None:
+                due = d2
+            if repeat is None and r2 is not None:
+                repeat = r2
+            # Keep the remainder of the continuation line if any content remains
+            keep_line = (indent + c2).rstrip()
+            if keep_line:
+                cont_keep.append(keep_line + "\n")
+            # Otherwise drop the line entirely (it only carried date metadata)
+            j += 1
+        # Build the transformed head line
+        prio_suffix = _map_priority_token(prio, tasks_format)
+        date_suffix = _format_dates_suffix(sched, due, repeat, tasks_format)
+        if state in {"DONE", "CANCELED", "CANCELLED"}:
+            base = f"{indent}- [x]"
+        else:
+            base = f"{indent}- [ ]"
+        if cleaned:
+            base += f" {cleaned}"
+        out.append(base + prio_suffix + date_suffix + "\n")
+        # Emit any kept continuation lines
+        out.extend(cont_keep)
+        i = j if j > i else i + 1
+    return out
+
+
 def transform_markdown(
     text: str,
-    annotate_status: bool,
     expected_title_path: Optional[str] = None,
     rel_path_for_warn: Optional[Path] = None,
     warn_collector: Optional[List[str]] = None,
+    tasks_format: str = "emoji",
 ) -> str:
     # Page frontmatter
     lines = text.splitlines(keepends=True)
@@ -493,8 +682,8 @@ def transform_markdown(
         body_lines = body_lines[1:]
     # Normalize heading + indented child list cases by making the heading a list item ("- # Heading")
     body_lines = fix_heading_child_lists(body_lines)
-    # tasks
-    body_lines = [transform_tasks(ln, annotate_status) for ln in body_lines]
+    # tasks (support logical lines spanning multiple physical lines)
+    body_lines = _process_task_lines_multiline(body_lines, tasks_format=tasks_format)
     # block ids
     body_lines = attach_block_ids(body_lines)
 
@@ -529,9 +718,7 @@ def main(argv: List[str]) -> int:
     print("[START] Logseq → Obsidian conversion")
     print(f"[CONFIG] input={opt.input_dir}")
     print(f"[CONFIG] output={opt.output_dir}")
-    print(
-        f"[CONFIG] daily_folder={opt.daily_folder or '-'} annotate_status={opt.annotate_status} dry_run={opt.dry_run}"
-    )
+    print(f"[CONFIG] daily_folder={opt.daily_folder or '-'} tasks_format={opt.tasks_format} dry_run={opt.dry_run}")
 
     plans = collect_files(opt)
     total = len(plans)
@@ -561,10 +748,10 @@ def main(argv: List[str]) -> int:
         expected_title = rel_out.with_suffix("").as_posix()
         transformed = transform_markdown(
             raw,
-            annotate_status=opt.annotate_status,
             expected_title_path=expected_title,
             rel_path_for_warn=rel,
             warn_collector=warn_messages,
+            tasks_format=opt.tasks_format,
         )
         pre_texts[pl.in_path] = transformed
 

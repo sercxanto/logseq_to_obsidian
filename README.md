@@ -14,9 +14,18 @@
   - `tags::` → `tags: []` (array, without `#`)
   - `title::` → omitted (Obsidian only uses the filename as the note name). If the Logseq title mismatches the vault-relative output path, a warning is emitted so you can tidy it up.
 - Task markers:
-  - `- TODO Something` → `- [ ] Something`
-  - `- DONE Something` → `- [x] Something`
-  - Other states (`DOING`, `LATER`, `WAITING`, `CANCELLED`) → unchecked by default; optionally annotate.
+  - Recognized at the start of a list item (`- STATE ...`, uppercase only):
+    - `TODO`, `DOING`, `LATER`, `NOW`, `WAIT`, `WAITING`, `IN-PROGRESS` → `- [ ] ...`
+    - `DONE`, `CANCELED`, `CANCELLED` → `- [x] ...`
+  - Priorities right after state (`[#A|#B|#C]`):
+    - Emoji: A→`⏫`, B→`🔼`, C→`🔽` (appended at end)
+    - Dataview: `[priority::high|medium|low]` (appended at end; omitted if none)
+  - Dates anywhere after the state:
+    - `SCHEDULED: <YYYY-MM-DD [Dow] [HH:MM] [repeater]>` → Emoji: `⏳ YYYY-MM-DD[ HH:MM]`; Dataview: `[scheduled::YYYY-MM-DD[ HH:MM]]`
+    - `DEADLINE: <YYYY-MM-DD [Dow] [HH:MM] [repeater]>` → Emoji: `📅 YYYY-MM-DD[ HH:MM]`; Dataview: `[due::YYYY-MM-DD[ HH:MM]]`
+    - Repeaters: `. +N<u>` or `++N<u>` → “every N <unit> when done”; `+N<u>` → “every N <unit>”
+      - Units: `y`=year(s), `m`=month(s), `w`=week(s), `d`=day(s), `h`=hour(s); pluralized when N ≠ 1
+    - Ordering: append priority, then scheduled, then due, then repeat; block anchors (e.g., `^id`) remain last
 - Block IDs:
   - `id:: <uuid>` lines are converted to Obsidian block anchors by appending `^<uuid>` to the owning block line.
 - Block references:
@@ -40,7 +49,7 @@ python3 logseq_to_obsidian.py \
   --input /path/to/logseq-vault \
   --output /path/to/obsidian-vault \
   --daily-folder "Daily Notes" \
-  --annotate-status \
+  --tasks-format emoji \
   --dry-run
 ```
 
@@ -49,8 +58,8 @@ python3 logseq_to_obsidian.py \
 - `--input`: Path to the Logseq vault root (folder containing `pages/`, `journals/`, etc.).
 - `--output`: Destination Obsidian vault directory (created if not exists).
 - `--daily-folder <name>`: Move `journals/` into this folder in the output. If omitted, keeps `journals/`.
+- `--tasks-format {emoji|dataview}`: Choose output format for Tasks metadata (priorities now; dates later). Default: `emoji`.
 - Pages are always flattened to the vault root; see "File placement rules" below.
-- `--annotate-status`: For non-`TODO/DONE` task states, append `(status: STATE)` after the task text.
 - `--dry-run`: Print planned changes without writing files.
 
 ## Notes and assumptions

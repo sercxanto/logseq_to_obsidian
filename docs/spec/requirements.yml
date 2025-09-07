@@ -45,7 +45,22 @@
 
 - id: REQ-TASKS-003
   area: tasks
-  statement: "Convert other task states to unchecked; when `--annotate-status`, append `(status: STATE)`."
+  statement: "(Deprecated) Annotating non-TODO/DONE states with `--annotate-status`."
+  status: deprecated
+
+- id: REQ-TASKS-004
+  area: tasks
+  statement: "Treat `- CANCELED ...` and `- CANCELLED ...` as completed tasks mapped to `- [x] ...`."
+  status: active
+
+- id: REQ-TASKS-005
+  area: tasks
+  statement: "Treat `- DOING ...`, `- LATER ...`, `- NOW ...`, `- IN-PROGRESS ...`, `- WAIT ...`, and `- WAITING ...` as unchecked tasks mapped to `- [ ] ...`."
+  status: active
+
+- id: REQ-TASKS-006
+  area: tasks
+  statement: "Recognize tasks only when the line begins with a hyphen list marker followed by an uppercase state token (no `*`/`+`; states must be uppercase)."
   status: active
 
 - id: REQ-BLOCKID-001
@@ -136,4 +151,61 @@
 - id: REQ-HEADCHILD-003
   area: formatting
   statement: "Do not alter fenced code blocks when normalizing heading + child lists."
+  status: active
+
+# Priority mapping to Obsidian Tasks
+- id: REQ-TASKS-PRIO-001
+  area: tasks
+  statement: "Map Logseq priorities placed right after the state token (`[#A]`, `[#B]`, `[#C]`) to High/Medium/Low and remove the bracket token."
+  status: active
+
+- id: REQ-TASKS-PRIO-002
+  area: tasks
+  statement: "When `--tasks-format emoji`, append the corresponding emoji at end of the task: A→⏫, B→🔼, C→🔽."
+  status: active
+
+- id: REQ-TASKS-PRIO-003
+  area: tasks
+  statement: "When `--tasks-format dataview`, append `[priority::high|medium|low]` inline field; omit any field when no priority is present."
+  status: active
+
+- id: REQ-TASKS-PRIO-004
+  area: tasks
+  statement: "Recognize priority only when immediately following the state token; priorities elsewhere are ignored."
+  status: active
+
+# Dates and recurrence mapping
+- id: REQ-TASKS-DATE-001
+  area: tasks
+  statement: "Detect `SCHEDULED: <YYYY-MM-DD [Dow] [HH:MM] [repeater]>` anywhere in the task text and emit a Tasks 'scheduled' field (emoji/dataview)."
+  status: active
+
+- id: REQ-TASKS-DATE-002
+  area: tasks
+  statement: "Detect `DEADLINE: <YYYY-MM-DD [Dow] [HH:MM] [repeater]>` anywhere in the task text and emit a Tasks 'due' field (emoji/dataview)."
+  status: active
+
+- id: REQ-TASKS-DATE-003
+  area: tasks
+  statement: "Map repeaters `.+N<u>` and `++N<u>` to 'every N <unit> when done', and `+N<u>` to 'every N <unit>' (units: y/m/w/d/h; pluralize when N≠1)."
+  status: active
+
+- id: REQ-TASKS-DATE-004
+  area: tasks
+  statement: "Strip the original SCHEDULED/DEADLINE tokens from the text and append the formatted fields at the end of the task line."
+  status: active
+
+- id: REQ-TASKS-DATE-005
+  area: tasks
+  statement: "Place appended fields before any trailing block anchor (e.g., '^id')."
+  status: active
+
+- id: REQ-TASKS-DATE-006
+  area: tasks
+  statement: "Support both SCHEDULED and DEADLINE on the same task line; emit both (scheduled first, then due)."
+  status: active
+
+- id: REQ-TASKS-DATE-007
+  area: tasks
+  statement: "Recognize SCHEDULED/DEADLINE tokens appearing on subsequent physical lines that continue the same task (same indentation, no leading '-')."
   status: active

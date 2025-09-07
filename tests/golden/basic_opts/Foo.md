@@ -10,7 +10,7 @@ tags:
 
 - [ ] Do it
 - [x] Finished
-- [ ] Later task (status: LATER)
+- [ ] Later task
 Paragraph line ^abc123
 See [[Foo#^abc123]]
 ![[picture.png]]
