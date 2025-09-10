@@ -220,6 +220,20 @@ def test_nested_task_under_heading_with_scheduled_on_its_own_line():
     assert any(line.strip() == "- [x] My task ⏳ 2025-05-27" for line in lines)
 
 
+@pytest.mark.req("REQ-HEADCHILD-001")
+@pytest.mark.req("REQ-PROPS-001")
+def test_heading_followed_by_collapsed_then_indented_list_becomes_list_heading():
+    src = (
+        "## Tag 1\n"
+        "collapsed:: true\n"
+        "    - Indentation\n"
+    )
+    out = l2o.transform_markdown(src, tasks_format="emoji")
+    lines = out.splitlines()
+    assert lines[0].startswith("- ## Tag 1")
+    assert lines[1] == "    - Indentation"
+
+
 @pytest.mark.req("REQ-BLOCKID-001")
 @pytest.mark.req("REQ-BLOCKID-002")
 def test_attach_block_ids_attaches_to_previous_content():

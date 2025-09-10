@@ -785,8 +785,10 @@ def transform_markdown(
     body_lines = fix_heading_child_lists(body_lines)
     # Parse bullet blocks (tasks and normal bullets), supporting logical lines spanning multiple physical lines
     body_lines = _process_blocks_multiline(body_lines, tasks_format=tasks_format)
-    # block ids
+    # block ids (also filters block-level properties like 'collapsed::')
     body_lines = attach_block_ids(body_lines)
+    # Re-run heading child list normalization in case property filtering exposed a heading directly before an indented list
+    body_lines = fix_heading_child_lists(body_lines)
 
     out = (yaml or "") + "".join(body_lines)
     return out
