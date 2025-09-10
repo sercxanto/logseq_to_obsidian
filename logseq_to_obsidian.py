@@ -11,6 +11,11 @@ from typing import Dict, List, Optional, Tuple
 PAGE_PROP_RE = re.compile(r"^([A-Za-z0-9_\-]+)::\s*(.*)\s*$")
 # Block properties may be indented under a list item in Logseq
 BLOCK_PROP_RE = re.compile(r"^\s*([A-Za-z0-9_\-]+)::\s*(.*)\s*$")
+HEAD_BULLET_RE = re.compile(r"^(?P<indent>[ \t]*)-\s+(?P<after>.*)$")
+STATE_RE = re.compile(
+    r"^(?P<state>TODO|DONE|DOING|LATER|NOW|WAIT|WAITING|IN-PROGRESS|CANCELED|CANCELLED)\b"
+    r"(?:\s+\[#(?P<prio>[ABC])\])?\s*(?P<rest>.*)$"
+)
 # Match only hyphen list items with uppercase state tokens and optional priority token right after the state
 TASK_RE = re.compile(
     r"^(?P<indent>\s*)-\s+"
@@ -586,40 +591,91 @@ def replace_asset_images(text: str) -> str:
     return MD_IMAGE_RE.sub(repl, text)
 
 
-def _process_task_lines_multiline(lines: List[str], tasks_format: str) -> List[str]:
+def _process_blocks_multiline(lines: List[str], tasks_format: str) -> List[str]:
     out: List[str] = []
     i = 0
     n = len(lines)
     while i < n:
         line = lines[i]
-        m = TASK_RE.match(line)
-        if not m:
+        m_head = HEAD_BULLET_RE.match(line)
+        if not m_head:
             out.append(line)
             i += 1
             continue
-        indent = m.group("indent")
-        state = m.group("state")
-        prio = m.group("prio")
-        rest = m.group("rest")
+        indent = m_head.group("indent")
+        after = m_head.group("after")
 
-        cleaned, sched, due, repeat = _extract_dates_and_repeat(rest)
-        cont_keep: List[str] = []
+        # Accumulators for this block
+        first_content: Optional[str] = None
+        cont_lines: List[Tuple[bool, str]] = []  # (is_property, line_text)
+        sched: Optional[tuple[str, Optional[str]]] = None
+        due: Optional[tuple[str, Optional[str]]] = None
+        repeat: Optional[tuple[str, int, str]] = None
+        block_id: Optional[str] = None
+        pre_prop_lines: List[str] = []
+        head_is_task = False
+        head_state: Optional[str] = None
+        head_prio: Optional[str] = None
+
+        # Head as property only?
+        m_prop_head = BLOCK_PROP_RE.match(after)
+        if m_prop_head and (m_prop_head.group(0).strip() == after.strip()):
+            key = m_prop_head.group(1).strip().lower()
+            val = m_prop_head.group(2).strip()
+            if key == "collapsed":
+                pass
+            elif key == "id":
+                block_id = val if val else block_id
+            else:
+                pre_prop_lines.append(f"{indent}{key}:: {val}\n")
+        else:
+            # Head content
+            m_state = STATE_RE.match(after)
+            if m_state:
+                head_is_task = True
+                head_state = m_state.group("state")
+                head_prio = m_state.group("prio")
+                rest = m_state.group("rest")
+                first_content, s2, d2, r2 = _extract_dates_and_repeat(rest)
+            else:
+                first_content, s2, d2, r2 = _extract_dates_and_repeat(after)
+            if s2 and not sched:
+                sched = s2
+            if d2 and not due:
+                due = d2
+            if r2 and not repeat:
+                repeat = r2
+
+        # Continuations
         j = i + 1
         while j < n:
             nxt = lines[j]
             # Stop on blank line
             if not nxt.strip():
                 break
-            # Must have at least the task's indent to be a continuation of the logical line
+            # Must have at least the block's indent to be a continuation of the logical line
             if not nxt.startswith(indent):
                 break
-            # Slice off the task's indent; any additional indent on the continuation is preserved in 'after'
-            after = nxt[len(indent) :]
-            # Continuation lines have no leading '-' after the indent
-            if after.startswith("-"):
+            # Slice off the block's indent; any additional indent preserved in 'after'
+            after_cont = nxt[len(indent) :]
+            # Continuation lines have no leading '-' after the (base) indent; allow extra spaces, but break if first non-space is '-'
+            if after_cont.lstrip(" \t").startswith("-"):
                 break
             # Extract any dates/repeat from the continuation content (strip trailing newline first)
-            cont_text = after.rstrip("\n")
+            cont_text = after_cont.rstrip("\n")
+            # Property-only continuation?
+            m_prop = BLOCK_PROP_RE.match(cont_text)
+            if m_prop and (m_prop.group(0).strip() == cont_text.strip()):
+                key = m_prop.group(1).strip().lower()
+                val = m_prop.group(2).strip()
+                if key == "collapsed":
+                    pass
+                elif key == "id":
+                    block_id = val if val else block_id
+                else:
+                    cont_lines.append((True, f"{indent}{key}:: {val}\n"))
+                j += 1
+                continue
             c2, s2, d2, r2 = _extract_dates_and_repeat(cont_text, preserve_whitespace=True)
             if sched is None and s2 is not None:
                 sched = s2
@@ -630,21 +686,66 @@ def _process_task_lines_multiline(lines: List[str], tasks_format: str) -> List[s
             # Keep the remainder of the continuation line if any content remains
             keep_line = (indent + c2).rstrip()
             if keep_line:
-                cont_keep.append(keep_line + "\n")
+                cont_lines.append((False, keep_line + "\n"))
             # Otherwise drop the line entirely (it only carried date metadata)
             j += 1
-        # Build the transformed head line
-        prio_suffix = _map_priority_token(prio, tasks_format)
+        # Build head line
+        head_line: Optional[str] = None
         date_suffix = _format_dates_suffix(sched, due, repeat, tasks_format)
-        if state in {"DONE", "CANCELED", "CANCELLED"}:
-            base = f"{indent}- [x]"
+        if head_is_task:
+            prio_suffix = _map_priority_token(head_prio, tasks_format)
+            checkbox = "- [x]" if head_state in {"DONE", "CANCELED", "CANCELLED"} else "- [ ]"
+            if first_content:
+                head_line = f"{indent}{checkbox} {first_content}{prio_suffix}{date_suffix}\n"
+            else:
+                if prio_suffix or date_suffix:
+                    head_line = f"{indent}{checkbox}{prio_suffix}{date_suffix}\n"
         else:
-            base = f"{indent}- [ ]"
-        if cleaned:
-            base += f" {cleaned}"
-        out.append(base + prio_suffix + date_suffix + "\n")
-        # Emit any kept continuation lines
-        out.extend(cont_keep)
+            if first_content:
+                head_line = f"{indent}- {first_content}{date_suffix}\n"
+            else:
+                if date_suffix:
+                    head_line = f"{indent}- {date_suffix.strip()}\n"
+
+        # If still no head line (e.g., head was only properties) but we have continuation content,
+        # synthesize a bullet from the first non-property continuation line.
+        if head_line is None:
+            for idx, (is_prop, text) in enumerate(cont_lines):
+                if is_prop:
+                    continue
+                # text begins with indent + remainder; strip the block indent and any extra leading spaces
+                raw = text.rstrip("\n")
+                remainder = raw[len(indent) :]
+                content_clean = remainder.lstrip()
+                head_line = f"{indent}- {content_clean}{date_suffix}\n"
+                # remove this continuation line now that it's promoted to head
+                del cont_lines[idx]
+                break
+
+        # Emit pre head properties
+        out.extend(pre_prop_lines)
+
+        # Attach id anchor
+        attached = False
+        if block_id:
+            # Prefer head line if it has visible content
+            if head_line and head_line.strip() not in {f"{indent}- [ ]", f"{indent}- [x]", f"{indent}-"}:
+                head_line = head_line.rstrip("\n") + f" ^{block_id}\n"
+                attached = True
+            else:
+                for idx, (is_prop, text) in enumerate(cont_lines):
+                    if is_prop:
+                        continue
+                    cont_lines[idx] = (False, text.rstrip("\n") + f" ^{block_id}\n")
+                    attached = True
+                    break
+        if block_id and not attached:
+            out.append(f"{indent}id:: {block_id}\n")
+
+        if head_line:
+            out.append(head_line)
+        # Emit continuation lines in order
+        out.extend(text for _, text in cont_lines)
         i = j if j > i else i + 1
     return out
 
@@ -682,8 +783,8 @@ def transform_markdown(
         body_lines = body_lines[1:]
     # Normalize heading + indented child list cases by making the heading a list item ("- # Heading")
     body_lines = fix_heading_child_lists(body_lines)
-    # tasks (support logical lines spanning multiple physical lines)
-    body_lines = _process_task_lines_multiline(body_lines, tasks_format=tasks_format)
+    # Parse bullet blocks (tasks and normal bullets), supporting logical lines spanning multiple physical lines
+    body_lines = _process_blocks_multiline(body_lines, tasks_format=tasks_format)
     # block ids
     body_lines = attach_block_ids(body_lines)
 

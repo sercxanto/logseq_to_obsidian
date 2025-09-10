@@ -73,6 +73,11 @@
   statement: "Do not attach `id::` if a property line appears after the content and before the id."
   status: active
 
+- id: REQ-BLOCKID-003
+  area: blocks
+  statement: "When `id::` appears on the bullet head, attach its anchor to the first content line of that block; if no content exists, keep the id property line."
+  status: active
+
 - id: REQ-BLOCKREF-001
   area: links
   statement: "Replace `((id))` with a wiki link to the target note and anchor `[[path#^id]]`."
@@ -106,6 +111,11 @@
 - id: REQ-PROPS-001
   area: properties
   statement: "Filter out block-level `collapsed::` properties; Obsidian stores collapse state outside Markdown."
+  status: active
+
+- id: REQ-PROPS-002
+  area: properties
+  statement: "Filter `collapsed::` even when present on the bullet head (e.g., '- collapsed:: true')."
   status: active
 
 - id: REQ-JOURNALS-001

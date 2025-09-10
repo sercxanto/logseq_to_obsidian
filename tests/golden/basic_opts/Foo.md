@@ -11,6 +11,7 @@ tags:
 - [ ] Do it
 - [x] Finished
 - [ ] Later task
-Paragraph line ^abc123
-See [[Foo#^abc123]]
-![[picture.png]]
+
+- Paragraph line ^abc123
+- See [[Foo#^abc123]]
+- ![[picture.png]]

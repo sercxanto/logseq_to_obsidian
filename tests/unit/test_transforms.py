@@ -106,6 +106,30 @@ def test_priority_only_recognized_when_after_state():
     assert out2 == "- [ ] Do this [#A]\n"
 
 
+@pytest.mark.req("REQ-PROPS-002")
+def test_collapsed_on_head_is_filtered_and_content_kept():
+    src = (
+        "- collapsed:: true\n"
+        "  Real content\n"
+    )
+    out = l2o.transform_markdown(src)
+    # Head property filtered; bullet synthesized from content
+    assert out == "- Real content\n"
+
+
+@pytest.mark.req("REQ-BLOCKID-003")
+def test_id_on_head_attaches_to_first_content():
+    src = (
+        "- id:: xyz789\n"
+        "  First content line\n"
+        "  Another\n"
+    )
+    out = l2o.transform_markdown(src)
+    lines = out.splitlines()
+    assert lines[0].endswith("^xyz789")
+    assert lines[0].startswith("- First content line")
+
+
 @pytest.mark.req("REQ-TASKS-DATE-001")
 @pytest.mark.req("REQ-TASKS-DATE-003")
 def test_scheduled_with_time_and_repeat_emoji():
@@ -177,6 +201,23 @@ def test_deeper_indent_is_not_continuation():
     assert lines[0] == "  - [ ] Parent ⏳ 2024-01-02"
     # Child bullet remains as is on its own line
     assert lines[1] == "    - Child bullet"
+
+
+@pytest.mark.req("REQ-TASKS-006")
+@pytest.mark.req("REQ-TASKS-DATE-001")
+def test_nested_task_under_heading_with_scheduled_on_its_own_line():
+    src = (
+        "- ## [[2025-05-25]]\n"
+        "    - Indentation level 1\n"
+        "        - Indentation level 2\n"
+        "        - DONE My task\n"
+        "          SCHEDULED: <2025-05-27 Tue>\n"
+    )
+    out = l2o.transform_markdown(src, tasks_format="emoji")
+    lines = out.splitlines()
+    assert lines[0] == "- ## [[2025-05-25]]"
+    # The scheduled date must be attached to the DONE task, not the parent
+    assert any(line.strip() == "- [x] My task ⏳ 2025-05-27" for line in lines)
 
 
 @pytest.mark.req("REQ-BLOCKID-001")
