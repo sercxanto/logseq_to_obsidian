@@ -30,6 +30,7 @@
   - `id:: <uuid>` lines are converted to Obsidian block anchors by appending `^<uuid>` to the owning block line.
 - Block references:
   - `((<uuid>))` → `[[<FileName>#^<uuid>]]` (resolved by scanning all files first).
+  - Optional: convert configured wikilinks `[[key/value]]` to Dataview inline fields `[key::value]` (non-embed, no alias, not inside code blocks).
 - Embeds:
   - `{{embed ((<uuid>))}}` → `![[<FileName>#^<uuid>]]`
   - `{{embed [[Some Page]]}}` → `![[Some Page]]`
@@ -50,6 +51,8 @@ python3 logseq_to_obsidian.py \
   --output /path/to/obsidian-vault \
   --daily-folder "Daily Notes" \
   --tasks-format emoji \
+  --field-key project \
+  --field-key topic \
   --dry-run
 ```
 
@@ -59,6 +62,7 @@ python3 logseq_to_obsidian.py \
 - `--output`: Destination Obsidian vault directory (created if not exists).
 - `--daily-folder <name>`: Move `journals/` into this folder in the output. If omitted, keeps `journals/`.
 - `--tasks-format {emoji|dataview}`: Choose output format for Tasks metadata (priorities now; dates later). Default: `emoji`.
+- `--field-key <key>`: Convert wikilinks of the form `[[key/value]]` to Dataview inline fields `[key::value]`. Repeatable for multiple keys.
 - Pages are always flattened to the vault root; see "File placement rules" below.
 - `--dry-run`: Print planned changes without writing files.
 

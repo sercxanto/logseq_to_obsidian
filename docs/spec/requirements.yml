@@ -93,6 +93,22 @@
   statement: "Use vault-relative link targets without file extension, with forward slashes."
   status: active
 
+# Wikilink → Dataview field conversion (configurable)
+- id: REQ-LINKNS-001
+  area: links
+  statement: "When a field key is configured, convert wikilinks of the form `[[key/value]]` to Dataview inline fields `[key::value]` for that key."
+  status: active
+
+- id: REQ-LINKNS-002
+  area: links
+  statement: "Do not convert embedded links (`![[...]]`), aliased links (`[[key/value|Alias]]`), or links without a slash."
+  status: active
+
+- id: REQ-LINKNS-003
+  area: links
+  statement: "Skip conversion inside fenced code blocks."
+  status: active
+
 - id: REQ-EMBED-001
   area: embeds
   statement: "Convert `{{embed ((id))}}` to `![[path#^id]]` after resolving the block ref."

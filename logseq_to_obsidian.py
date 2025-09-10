@@ -50,6 +50,7 @@ class Options:
     daily_folder: Optional[str]
     dry_run: bool
     tasks_format: str  # 'emoji' or 'dataview'
+    field_keys: List[str]
 
 
 @dataclass
@@ -70,6 +71,12 @@ def parse_args(argv: List[str]) -> Options:
         default="emoji",
         help="Format for Tasks plugin metadata (priority, dates)",
     )
+    p.add_argument(
+        "--field-key",
+        action="append",
+        default=[],
+        help="Convert wikilinks of the form [[key/value]] to Dataview inline fields [key::value] for the given key(s).",
+    )
     p.add_argument("--dry-run", action="store_true", help="Do not write files; print plan only")
     args = p.parse_args(argv)
     return Options(
@@ -78,6 +85,7 @@ def parse_args(argv: List[str]) -> Options:
         daily_folder=args.daily_folder,
         dry_run=bool(args.dry_run),
         tasks_format=str(args.tasks_format),
+        field_keys=list(args.field_key or []),
     )
 
 
@@ -432,7 +440,19 @@ def attach_block_ids(lines: List[str]) -> List[str]:
 
 def _is_fence(line: str) -> bool:
     s = line.lstrip()
-    return s.startswith("```")
+    # Allow fences that appear inside list items like "- ```" or "1. ```"
+    t = s
+    if t and t[0] in "-*+" and len(t) > 1 and t[1].isspace():
+        t = t[2:].lstrip()
+    else:
+        j = 0
+        while j < len(t) and t[j].isdigit():
+            j += 1
+        if j > 0 and j < len(t) and t[j] in ".)":
+            j += 1
+            if j < len(t) and t[j].isspace():
+                t = t[j + 1 :].lstrip()
+    return t.startswith("```")
 
 
 def _indent_width(line: str) -> tuple[int, int]:
@@ -589,6 +609,41 @@ def replace_asset_images(text: str) -> str:
         return f"![[{name}]]"
 
     return MD_IMAGE_RE.sub(repl, text)
+
+
+WIKILINK_RE = re.compile(r"(?<!!)\[\[([^\]]+)\]\]")
+
+
+def replace_wikilinks_to_dv_fields(text: str, field_keys: List[str]) -> str:
+    if not field_keys:
+        return text
+    keys = set(field_keys)
+    out_lines: List[str] = []
+    in_fence = False
+    for line in text.splitlines(keepends=True):
+        if _is_fence(line):
+            in_fence = not in_fence
+            out_lines.append(line)
+            continue
+        if in_fence:
+            out_lines.append(line)
+            continue
+
+        def repl(m: re.Match) -> str:
+            inner = m.group(1)
+            # Skip aliases like [[ns/val|Alias]]
+            if "|" in inner:
+                return m.group(0)
+            # Only consider ns/value where ns is configured
+            if "/" not in inner:
+                return m.group(0)
+            ns, value = inner.split("/", 1)
+            if ns in keys and value:
+                return f"[{ns}::{value}]"
+            return m.group(0)
+
+        out_lines.append(WIKILINK_RE.sub(repl, line))
+    return "".join(out_lines)
 
 
 def _process_blocks_multiline(lines: List[str], tasks_format: str) -> List[str]:
@@ -821,7 +876,9 @@ def main(argv: List[str]) -> int:
     print("[START] Logseq → Obsidian conversion")
     print(f"[CONFIG] input={opt.input_dir}")
     print(f"[CONFIG] output={opt.output_dir}")
-    print(f"[CONFIG] daily_folder={opt.daily_folder or '-'} tasks_format={opt.tasks_format} dry_run={opt.dry_run}")
+    print(
+        f"[CONFIG] daily_folder={opt.daily_folder or '-'} tasks_format={opt.tasks_format} field_keys={','.join(opt.field_keys) or '-'} dry_run={opt.dry_run}"
+    )
 
     plans = collect_files(opt)
     total = len(plans)
@@ -869,6 +926,7 @@ def main(argv: List[str]) -> int:
             text = pre_texts.get(pl.in_path, pl.in_path.read_text(encoding="utf-8"))
             text = replace_block_refs(text, block_index, in_to_out, opt.output_dir)
             text = replace_embeds(text)
+            text = replace_wikilinks_to_dv_fields(text, opt.field_keys)
             text = replace_asset_images(text)
             copy_or_write(pl.out_path, text, None, opt.dry_run)
             writes += 1

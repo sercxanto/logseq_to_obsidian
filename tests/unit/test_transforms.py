@@ -234,6 +234,38 @@ def test_heading_followed_by_collapsed_then_indented_list_becomes_list_heading()
     assert lines[1] == "    - Indentation"
 
 
+@pytest.mark.req("REQ-LINKNS-001")
+@pytest.mark.req("REQ-LINKNS-002")
+@pytest.mark.req("REQ-LINKNS-003")
+def test_wikilink_to_dataview_field_conversion():
+    # No config → unchanged
+    assert l2o.replace_wikilinks_to_dv_fields("X [[a/b]] Y\n", []) == "X [[a/b]] Y\n"
+    # Single key
+    assert l2o.replace_wikilinks_to_dv_fields("X [[a/b]] Y\n", ["a"]) == "X [a::b] Y\n"
+    # Nested value remains
+    assert l2o.replace_wikilinks_to_dv_fields("[[a/b/c]]\n", ["a"]) == "[a::b/c]\n"
+    # Embed not converted
+    assert l2o.replace_wikilinks_to_dv_fields("![[a/b]]\n", ["a"]) == "![[a/b]]\n"
+    # Aliased link not converted
+    assert l2o.replace_wikilinks_to_dv_fields("[[a/b|Alias]]\n", ["a"]) == "[[a/b|Alias]]\n"
+    # Inside fenced code not converted
+    src = "```\n[[a/b]]\n```\n"
+    assert l2o.replace_wikilinks_to_dv_fields(src, ["a"]) == src
+
+
+@pytest.mark.req("REQ-LINKNS-001")
+@pytest.mark.req("REQ-LINKNS-003")
+def test_wikilink_after_codeblock_is_converted():
+    src = (
+        "- ```\n"
+        "  [[a/b]]\n"
+        "  ```\n"
+        "- [[a/c]]\n"
+    )
+    out = l2o.replace_wikilinks_to_dv_fields(src, ["a"])
+    assert out.endswith("[a::c]\n")
+
+
 @pytest.mark.req("REQ-BLOCKID-001")
 @pytest.mark.req("REQ-BLOCKID-002")
 def test_attach_block_ids_attaches_to_previous_content():
