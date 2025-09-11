@@ -10,37 +10,37 @@
 
 - Page properties (`key:: value`) at top → YAML front matter.
 - Special mappings:
-  - `alias::` or `aliases::` → `aliases: []` (array)
-  - `tags::` → `tags: []` (array, without `#`)
-  - `title::` → omitted (Obsidian only uses the filename as the note name). If the Logseq title mismatches the vault-relative output path, a warning is emitted so you can tidy it up.
+    - `alias::` or `aliases::` → `aliases: []` (array)
+    - `tags::` → `tags: []` (array, without `#`)
+    - `title::` → omitted (Obsidian only uses the filename as the note name). If the Logseq title mismatches the vault-relative output path, a warning is emitted so you can tidy it up.
 - Task markers:
-  - Recognized at the start of a list item (`- STATE ...`, uppercase only):
-    - `TODO`, `DOING`, `LATER`, `NOW`, `WAIT`, `WAITING`, `IN-PROGRESS` → `- [ ] ...`
-    - `DONE`, `CANCELED`, `CANCELLED` → `- [x] ...`
-  - Priorities right after state (`[#A|#B|#C]`):
-    - Emoji: A→`⏫`, B→`🔼`, C→`🔽` (appended at end)
-    - Dataview: `[priority::high|medium|low]` (appended at end; omitted if none)
-  - Dates anywhere after the state:
-    - `SCHEDULED: <YYYY-MM-DD [Dow] [HH:MM] [repeater]>` → Emoji: `⏳ YYYY-MM-DD[ HH:MM]`; Dataview: `[scheduled::YYYY-MM-DD[ HH:MM]]`
-    - `DEADLINE: <YYYY-MM-DD [Dow] [HH:MM] [repeater]>` → Emoji: `📅 YYYY-MM-DD[ HH:MM]`; Dataview: `[due::YYYY-MM-DD[ HH:MM]]`
-    - Repeaters: `. +N<u>` or `++N<u>` → “every N <unit> when done”; `+N<u>` → “every N <unit>”
-      - Units: `y`=year(s), `m`=month(s), `w`=week(s), `d`=day(s), `h`=hour(s); pluralized when N ≠ 1
-    - Ordering: append priority, then scheduled, then due, then repeat; block anchors (e.g., `^id`) remain last
+    - Recognized at the start of a list item (`- STATE ...`, uppercase only):
+        - `TODO`, `DOING`, `LATER`, `NOW`, `WAIT`, `WAITING`, `IN-PROGRESS` → `- [ ] ...`
+        - `DONE`, `CANCELED`, `CANCELLED` → `- [x] ...`
+    - Priorities right after state (`[#A|#B|#C]`):
+        - Emoji: A→`⏫`, B→`🔼`, C→`🔽` (appended at end)
+        - Dataview: `[priority::high|medium|low]` (appended at end; omitted if none)
+    - Dates anywhere after the state:
+        - `SCHEDULED: <YYYY-MM-DD [Dow] [HH:MM] [repeater]>` → Emoji: `⏳ YYYY-MM-DD[ HH:MM]`; Dataview: `[scheduled::YYYY-MM-DD[ HH:MM]]`
+        - `DEADLINE: <YYYY-MM-DD [Dow] [HH:MM] [repeater]>` → Emoji: `📅 YYYY-MM-DD[ HH:MM]`; Dataview: `[due::YYYY-MM-DD[ HH:MM]]`
+        - Repeaters: `. +N<u>` or `++N<u>` → “every N <unit> when done”; `+N<u>` → “every N <unit>”
+        - Units: `y`=year(s), `m`=month(s), `w`=week(s), `d`=day(s), `h`=hour(s); pluralized when N ≠ 1
+        - Ordering: append priority, then scheduled, then due, then repeat; block anchors (e.g., `^id`) remain last
 - Block IDs:
-  - `id:: <uuid>` lines are converted to Obsidian block anchors by appending `^<uuid>` to the owning block line.
+    - `id:: <uuid>` lines are converted to Obsidian block anchors by appending `^<uuid>` to the owning block line.
 - Block references:
-  - `((<uuid>))` → `[[<FileName>#^<uuid>]]` (resolved by scanning all files first).
-  - Optional: convert configured wikilinks `[[key/value]]` to Dataview inline fields `[key::value]` (non-embed, no alias, not inside code blocks).
+    - `((<uuid>))` → `[[<FileName>#^<uuid>]]` (resolved by scanning all files first).
+    - Optional: convert configured wikilinks `[[key/value]]` to Dataview inline fields `[key::value]` (non-embed, no alias, not inside code blocks).
 - Embeds:
-  - `{{embed ((<uuid>))}}` → `![[<FileName>#^<uuid>]]`
-  - `{{embed [[Some Page]]}}` → `![[Some Page]]`
+    - `{{embed ((<uuid>))}}` → `![[<FileName>#^<uuid>]]`
+    - `{{embed [[Some Page]]}}` → `![[Some Page]]`
 - Images in assets:
-  - `![alt](../assets/image.png)` or `![alt](assets/image.png)` → `![[image.png]]` (alt text is not preserved)
+    - `![alt](../assets/image.png)` or `![alt](assets/image.png)` → `![[image.png]]` (alt text is not preserved)
 - Headings followed by indented lists:
-  - If a heading line is immediately followed by an indented list (≥4 spaces or tabs), prefix the heading with `- ` (i.e., `- # Heading`).
-  - Rationale: Logseq treats such lists as children of the heading; Obsidian otherwise renders them as quoted/code blocks. This keeps folding behavior aligned.
+    - If a heading line is immediately followed by an indented list (≥4 spaces or tabs), prefix the heading with `- ` (i.e., `- # Heading`).
+    - Rationale: Logseq treats such lists as children of the heading; Obsidian otherwise renders them as quoted/code blocks. This keeps folding behavior aligned.
 - Journals:
-  - Renames `YYYY_MM_DD.md` → `YYYY-MM-DD.md` and can move journals to a specific folder.
+    - Renames `YYYY_MM_DD.md` → `YYYY-MM-DD.md` and can move journals to a specific folder.
 - Assets and other files are copied as-is.
 
 ## Usage
