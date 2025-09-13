@@ -29,6 +29,7 @@ JOURNAL_DATE_UNDERSCORE_RE = re.compile(r"^(\d{4})_(\d{2})_(\d{2})\.md$")
 JOURNAL_DATE_DASH_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})\.md$")
 EMBED_RE = re.compile(r"\{\{embed\s+(.*?)\}\}", flags=re.IGNORECASE)
 MD_IMAGE_RE = re.compile(r"!\[[^\]]*\]\(([^\)]+)\)")
+IMG_WITH_OPT_RE = re.compile(r"!\[[^\]]*\]\(([^\)]+)\)\s*(\{[^}]*\})?")
 SCHED_DEAD_RE = re.compile(
     r"(?P<kind>SCHEDULED|DEADLINE)\s*:??\s*"  # keyword + optional ':'
     r"<\s*"
@@ -586,6 +587,24 @@ def replace_embeds(text: str) -> str:
     return EMBED_RE.sub(repl, text)
 
 
+def _parse_size_attrs(attrs: Optional[str]) -> Optional[tuple[int, int]]:
+    if not attrs:
+        return None
+    content = attrs.strip()
+    if content.startswith("{") and content.endswith("}"):
+        content = content[1:-1]
+    m_h = re.search(r":height\s+(\d+)", content)
+    m_w = re.search(r":width\s+(\d+)", content)
+    if m_h and m_w:
+        try:
+            h = int(m_h.group(1))
+            w = int(m_w.group(1))
+            return w, h
+        except ValueError:
+            return None
+    return None
+
+
 def replace_asset_images(text: str) -> str:
     """Convert Logseq image markdown pointing to assets/ into Obsidian embeds.
 
@@ -596,6 +615,7 @@ def replace_asset_images(text: str) -> str:
     """
     def repl(m: re.Match) -> str:
         url = m.group(1).strip()
+        attrs = m.group(2)
         low = url.lower()
         if low.startswith("http://") or low.startswith("https://") or low.startswith("data:"):
             return m.group(0)
@@ -606,9 +626,13 @@ def replace_asset_images(text: str) -> str:
             return m.group(0)
         # Extract basename
         name = path.split("/")[-1]
+        size = _parse_size_attrs(attrs)
+        if size:
+            w, h = size
+            return f"![[{name}|{w}x{h}]]"
         return f"![[{name}]]"
 
-    return MD_IMAGE_RE.sub(repl, text)
+    return IMG_WITH_OPT_RE.sub(repl, text)
 
 
 WIKILINK_RE = re.compile(r"(?<!!)\[\[([^\]]+)\]\]")
@@ -761,6 +785,9 @@ def _process_blocks_multiline(lines: List[str], tasks_format: str) -> List[str]:
             else:
                 if date_suffix:
                     head_line = f"{indent}- {date_suffix.strip()}\n"
+                else:
+                    # Leave unset to allow promotion from continuation; fallback decided below
+                    head_line = None
 
         # If still no head line (e.g., head was only properties) but we have continuation content,
         # synthesize a bullet from the first non-property continuation line.
@@ -776,6 +803,17 @@ def _process_blocks_multiline(lines: List[str], tasks_format: str) -> List[str]:
                 # remove this continuation line now that it's promoted to head
                 del cont_lines[idx]
                 break
+
+        # Final fallback: if still no head line, decide whether to preserve a solitary '-' or skip
+        if head_line is None:
+            has_nonprop_cont = any(not is_prop for (is_prop, _t) in cont_lines)
+            if block_id and not has_nonprop_cont and not first_content and not date_suffix and not pre_prop_lines:
+                # Property-only head (e.g., '- id:: ...') with nothing else: do not emit empty bullet.
+                # The id property will be emitted below and later attached to previous content by attach_block_ids.
+                pass
+            else:
+                # Preserve explicit empty bullet line
+                head_line = f"{indent}-\n"
 
         # Emit pre head properties
         out.extend(pre_prop_lines)
@@ -888,6 +926,8 @@ def main(argv: List[str]) -> int:
 
     # First pass: read markdown files and pre-transform to attach ids, etc., to allow building index
     pre_texts: Dict[Path, str] = {}
+    # Track exact count of trailing newlines in the source to preserve EOF newline behavior
+    src_trailing_nl_count: Dict[Path, int] = {}
     in_to_out: Dict[Path, Path] = {pl.in_path: pl.out_path for pl in plans}
 
     warn_messages: List[str] = []
@@ -900,6 +940,7 @@ def main(argv: List[str]) -> int:
             rel = pl.in_path
         print(f"[TRANSFORM] {rel}")
         raw = pl.in_path.read_text(encoding="utf-8")
+        src_trailing_nl_count[pl.in_path] = len(raw) - len(raw.rstrip("\n"))
         # Compute the expected title as the vault-relative output path without extension
         try:
             rel_out = pl.out_path.relative_to(opt.output_dir)
@@ -928,6 +969,9 @@ def main(argv: List[str]) -> int:
             text = replace_embeds(text)
             text = replace_wikilinks_to_dv_fields(text, opt.field_keys)
             text = replace_asset_images(text)
+            # Ensure a trailing newline at EOF to match golden outputs
+            if not text.endswith("\n"):
+                text += "\n"
             copy_or_write(pl.out_path, text, None, opt.dry_run)
             writes += 1
         else:

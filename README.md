@@ -36,6 +36,7 @@
     - `{{embed [[Some Page]]}}` → `![[Some Page]]`
 - Images in assets:
     - `![alt](../assets/image.png)` or `![alt](assets/image.png)` → `![[image.png]]` (alt text is not preserved)
+    - With size attributes: `![alt](../assets/image.png){:height H, :width W}` → `![[image.png|WxH]]` (width × height)
 - Headings followed by indented lists:
     - If a heading line is immediately followed by an indented list (≥4 spaces or tabs), prefix the heading with `- ` (i.e., `- # Heading`).
     - Rationale: Logseq treats such lists as children of the heading; Obsidian otherwise renders them as quoted/code blocks. This keeps folding behavior aligned.

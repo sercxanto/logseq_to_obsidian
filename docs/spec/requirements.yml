@@ -124,6 +124,11 @@
   statement: "Convert Logseq markdown image links to assets (e.g., `![alt](../assets/img.png)`) into Obsidian embeds `![[img.png]]`; alt text is dropped."
   status: active
 
+- id: REQ-IMAGE-002
+  area: images
+  statement: "When a Logseq image has size attributes like `{:height 424, :width 675}`, convert to Obsidian embed with explicit size suffix `![[img.png|675x424]]` (width x height)."
+  status: active
+
 - id: REQ-PROPS-001
   area: properties
   statement: "Filter out block-level `collapsed::` properties; Obsidian stores collapse state outside Markdown."

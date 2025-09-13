@@ -6,6 +6,9 @@ aliases:: [[AltFoo]], Other
 - DONE Finished
 - LATER Later task
 
+- Next line empty on purpose
+-
+
 - Paragraph line
 - id:: abc123
 - See ((abc123))

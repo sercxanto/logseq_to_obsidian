@@ -354,6 +354,13 @@ def test_markdown_image_in_assets_converts_to_obsidian_embed(tmp_path):
     assert out2.strip() == "![[picture.png]]"
 
 
+@pytest.mark.req("REQ-IMAGE-002")
+def test_markdown_image_with_size_attrs_converts_to_size_suffix():
+    text = "![alt](../assets/picture.png){:height 424, :width 675}"
+    out = l2o.replace_asset_images(text)
+    assert out.strip() == "![[picture.png|675x424]]"
+
+
 @pytest.mark.req("REQ-FRONTMATTER-005")
 def test_only_leading_properties_become_yaml_frontmatter():
     src = (
