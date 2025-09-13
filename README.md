@@ -81,6 +81,7 @@ python3 logseq_to_obsidian.py \
 - Skips Logseq's internal `logseq/` metadata folder.
 - Skips Logseq whiteboards (`whiteboards/`); a warning is emitted since Obsidian cannot read Logseq's whiteboard format.
     - Only normalizes heading + indented list patterns outside fenced code blocks; headings already inside list items are left unchanged.
+- File times are preserved: output files keep the original source modification time (mtime) for both transformed Markdown and copied assets.
 
 ## File placement rules
 

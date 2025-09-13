@@ -240,3 +240,9 @@
   area: tasks
   statement: "Recognize SCHEDULED/DEADLINE tokens appearing on subsequent physical lines that continue the same task (same indentation, no leading '-')."
   status: active
+
+- id: REQ-MTIME-001
+  area: files
+  statement: "Preserve original source file modification times (mtime/atime) for all outputs, including transformed Markdown and copied assets."
+  status: active
+  

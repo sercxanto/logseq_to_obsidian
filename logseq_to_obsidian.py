@@ -887,7 +887,7 @@ def transform_markdown(
     return out
 
 
-def copy_or_write(out_path: Path, content: Optional[str], src: Optional[Path], dry_run: bool):
+def copy_or_write(out_path: Path, content: Optional[str], src: Path, dry_run: bool):
     ensure_dir(out_path, dry_run)
     if content is not None:
         if dry_run:
@@ -895,13 +895,22 @@ def copy_or_write(out_path: Path, content: Optional[str], src: Optional[Path], d
             return
         print(f"[WRITE] {out_path}")
         out_path.write_text(content, encoding="utf-8")
+        # Preserve timestamps from source when available
+        try:
+            shutil.copystat(src, out_path)
+        except Exception as e:
+            print(f"[WARN] Could not preserve times for {out_path}: {e}")
     else:
-        assert src is not None
         if dry_run:
             print(f"[DRY-COPY] {src} -> {out_path}")
             return
         print(f"[COPY] {src} -> {out_path}")
         shutil.copy2(src, out_path)
+        # Reinforce metadata copy in case of platform quirks
+        try:
+            shutil.copystat(src, out_path)
+        except Exception as e:
+            print(f"[WARN] Could not preserve times for {out_path}: {e}")
 
 
 def main(argv: List[str]) -> int:
@@ -972,7 +981,7 @@ def main(argv: List[str]) -> int:
             # Ensure a trailing newline at EOF to match golden outputs
             if not text.endswith("\n"):
                 text += "\n"
-            copy_or_write(pl.out_path, text, None, opt.dry_run)
+            copy_or_write(pl.out_path, text, pl.in_path, opt.dry_run)
             writes += 1
         else:
             # Copy assets and others
