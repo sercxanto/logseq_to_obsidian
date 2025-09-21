@@ -1,23 +1,25 @@
-[tool.poetry]
+[project]
 name = "logseq-to-obsidian"
 version = "0.1.0"
 description = "Convert a Logseq vault to Obsidian-friendly Markdown"
+license = "MIT"
 readme = "README.md"
+requires-python = ">=3.9,<4.0"
+
+[project.scripts]
+logseq-to-obsidian = "logseq_to_obsidian.__main__:main"
+
+[tool.poetry]
+
 package-mode = true
 packages = [
   { include = "logseq_to_obsidian", from = "src" },
 ]
 
-[tool.poetry.dependencies]
-python = "^3.9"
-
 [tool.poetry.group.dev.dependencies]
-ruff = "^0.5.0"
-pytest = "^8.3.0"
+ruff = "^0.13.1"
+pytest = "^8.4.2"
 pyyaml = "^6.0.2"
-
-[tool.poetry.scripts]
-logseq-to-obsidian = "logseq_to_obsidian.__main__:main"
 
 [tool.ruff]
 target-version = "py39"
