@@ -3,19 +3,21 @@
 Please carefully read the information and instructions in this file if you like
 to contribute.
 
-There is one main script `logseq_to_obsidian.py` which is intentionally kept free from 
-dependencies other than the standard library and does have no further files imported.
-The test can have additional dependencies like pytest which are managed by poetry.
+The package is intentionally kept free from runtime dependencies beyond the standard library.
+Development/test dependencies (pytest, ruff, etc.) are managed by Poetry.
 
-This is by design to allow just running the script without an install:
+You can run the CLI via the installed console script or module entry point:
 
 ```shell
-./logseq_to_obsidian.py --help
+poetry run logseq-to-obsidian --help
+# or
+poetry run python -m logseq_to_obsidian --help
 ```
-To install the development dependencies run `poetry install` like this:
+
+To install the development dependencies (and the package in editable mode) run:
 
 ```shell
-poetry install --with dev --no-root
+poetry install --with dev
 ```
 
 ## How to add new features

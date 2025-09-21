@@ -44,16 +44,31 @@
     - Renames `YYYY_MM_DD.md` → `YYYY-MM-DD.md` and can move journals to a specific folder.
 - Assets and other files are copied as-is.
 
+## Installation
+
+- pipx (recommended): `pipx install logseq-to-obsidian`
+- pip: `pip install logseq-to-obsidian`
+- From Git (development version): `pipx install "git+https://github.com/sercxanto/logseq_to_obsidian.git@main"`
+
 ## Usage
 
 ```
-python3 logseq_to_obsidian.py \
+logseq-to-obsidian \
   --input /path/to/logseq-vault \
   --output /path/to/obsidian-vault \
   --daily-folder "Daily Notes" \
   --tasks-format emoji \
   --field-key project \
   --field-key topic \
+  --dry-run
+```
+
+Alternatively (no console script), you can run:
+
+```
+python -m logseq_to_obsidian \
+  --input /path/to/logseq-vault \
+  --output /path/to/obsidian-vault \
   --dry-run
 ```
 

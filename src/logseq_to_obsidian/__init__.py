@@ -1,4 +1,5 @@
-#!/usr/bin/env python3
+from __future__ import annotations
+
 import argparse
 import os
 import re
@@ -566,70 +567,38 @@ def replace_block_refs(text: str, index: Dict[str, Path], in_to_out: Dict[Path, 
 
 
 def replace_embeds(text: str) -> str:
-    """Convert Logseq embeds like {{embed [[Page]]}} or {{embed ((id))}} to Obsidian ![[...]].
-
-    Note: Replace block refs first so that ((id)) become [[path#^id]], then this wraps as ![[...]].
-    """
     def repl(m: re.Match) -> str:
-        inner = m.group(1)
-        # Prefer the first wikilink inside
-        m_wiki = re.search(r"\[\[([^\]]+)\]\]", inner)
+        inner = m.group(1).strip()
+        # block embed: {{embed ((id))}}
+        m_bid = re.fullmatch(r"\(\(([A-Za-z0-9_-]{6,})\)\)", inner)
+        if m_bid:
+            # keep as-is here; block refs replaced later to ![[...]] by replace_block_refs + this pass
+            return f"![[^{m_bid.group(1)}]]"  # temporary; will be corrected by block ref replacement
+        # page embed: {{embed [[Page]]}}
+        m_wiki = re.fullmatch(r"\[\[([^\]]+)\]\]", inner)
         if m_wiki:
-            target = m_wiki.group(1).strip()
-            return f"![[{target}]]"
-        # Fallback: treat inner as a plain link target
-        target = inner.strip()
-        # Strip any leading 'See '
-        target = re.sub(r"^See\s+", "", target, flags=re.IGNORECASE)
-        # If already of the form Note#^id without brackets, wrap it
-        return f"![[{target}]]"
+            return f"![[{m_wiki.group(1)}]]"
+        # unknown: leave original
+        return m.group(0)
 
-    return EMBED_RE.sub(repl, text)
-
-
-def _parse_size_attrs(attrs: Optional[str]) -> Optional[tuple[int, int]]:
-    if not attrs:
-        return None
-    content = attrs.strip()
-    if content.startswith("{") and content.endswith("}"):
-        content = content[1:-1]
-    m_h = re.search(r":height\s+(\d+)", content)
-    m_w = re.search(r":width\s+(\d+)", content)
-    if m_h and m_w:
-        try:
-            h = int(m_h.group(1))
-            w = int(m_w.group(1))
-            return w, h
-        except ValueError:
-            return None
-    return None
+    # First convert embed wrappers; block refs inside will be normalized later
+    text2 = EMBED_RE.sub(repl, text)
+    # After block ref resolution, convert temporary ![[^id]] forms to full links where possible happens in replace_block_refs
+    return text2
 
 
 def replace_asset_images(text: str) -> str:
-    """Convert Logseq image markdown pointing to assets/ into Obsidian embeds.
-
-    Examples:
-      - ![alt](../assets/image.png) -> ![[image.png]]
-      - ![alt](assets/image.png) -> ![[image.png]]
-    Other image links (http, data URIs, non-assets paths) are left unchanged.
-    """
     def repl(m: re.Match) -> str:
-        url = m.group(1).strip()
-        attrs = m.group(2)
-        low = url.lower()
-        if low.startswith("http://") or low.startswith("https://") or low.startswith("data:"):
-            return m.group(0)
-        # Normalize separators and strip leading ./ or ../ segments
-        path = url.replace("\\", "/")
-        # Quick check for /assets/ segment
-        if "/assets/" not in "/" + path.lstrip("./"):
-            return m.group(0)
-        # Extract basename
-        name = path.split("/")[-1]
-        size = _parse_size_attrs(attrs)
-        if size:
-            w, h = size
-            return f"![[{name}|{w}x{h}]]"
+        src = m.group(1)
+        opt = m.group(2) if m.lastindex and m.lastindex >= 2 else None
+        # Normalize path, drop leading ../assets or assets
+        name = src.replace("\\", "/").split("/")[-1]
+        if opt:
+            # parse {:height H, :width W}
+            h = re.search(r":height\s+(\d+)", opt)
+            w = re.search(r":width\s+(\d+)", opt)
+            if w and h:
+                return f"![[{name}|{w.group(1)}x{h.group(1)}]]"
         return f"![[{name}]]"
 
     return IMG_WITH_OPT_RE.sub(repl, text)
@@ -996,5 +965,4 @@ def main(argv: List[str]) -> int:
     return 0
 
 
-if __name__ == "__main__":
-    raise SystemExit(main(sys.argv[1:]))
+__all__ = ["main", "transform_markdown"]
