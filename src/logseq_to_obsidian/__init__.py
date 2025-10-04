@@ -6,8 +6,15 @@ import re
 import shutil
 import sys
 from dataclasses import dataclass
+from importlib import metadata
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+
+# Expose the package version for CLI/version reporting. Falls back gracefully if metadata is missing.
+try:
+    __version__ = metadata.version("logseq-to-obsidian")
+except metadata.PackageNotFoundError:  # pragma: no cover - only in editable installs before metadata exists
+    __version__ = "0.0.0"
 
 PAGE_PROP_RE = re.compile(r"^([A-Za-z0-9_\-]+)::\s*(.*)\s*$")
 # Block properties may be indented under a list item in Logseq
@@ -64,6 +71,7 @@ class FilePlan:
 
 def parse_args(argv: List[str]) -> Options:
     p = argparse.ArgumentParser(description="Convert a Logseq vault to Obsidian-friendly Markdown.")
+    p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     p.add_argument("--input", required=True, help="Path to Logseq vault root")
     p.add_argument("--output", required=True, help="Path to destination Obsidian vault root")
     p.add_argument("--daily-folder", default=None, help="Move journals into this folder name in output")
@@ -965,4 +973,4 @@ def main(argv: List[str]) -> int:
     return 0
 
 
-__all__ = ["main", "transform_markdown"]
+__all__ = ["main", "transform_markdown", "__version__", "parse_args"]
