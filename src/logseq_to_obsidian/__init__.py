@@ -144,7 +144,9 @@ def collect_files(opt: Options) -> List[FilePlan]:
                 if skip in dirs:
                     dirs.remove(skip)
                     if skip == "whiteboards":
-                        print("[WARN] Skipping top-level 'whiteboards/' directory (Logseq whiteboards are not supported)")
+                        print(
+                            "[WARN] Skipping top-level 'whiteboards/' directory (Logseq whiteboards are not supported)"
+                        )
                     elif skip == "logseq":
                         # We keep warning behavior concise; logseq folder is silently skipped as metadata
                         pass
@@ -335,7 +337,9 @@ def _plural(unit: str, n: int) -> str:
 def _extract_dates_and_repeat(
     text: str,
     preserve_whitespace: bool = False,
-) -> tuple[str, Optional[tuple[str, Optional[str]]], Optional[tuple[str, Optional[str]]], Optional[tuple[str, int, str]]]:
+) -> tuple[
+    str, Optional[tuple[str, Optional[str]]], Optional[tuple[str, Optional[str]]], Optional[tuple[str, int, str]]
+]:
     """Return (cleaned_text, scheduled(date,time), due(date,time), repeat(kind,num,unit)).
 
     - Only the first SCHEDULED and first DEADLINE are captured.
@@ -377,6 +381,7 @@ def _format_dates_suffix(
     tasks_format: str,
 ) -> str:
     parts: List[str] = []
+
     def fmt_datetime(dt: tuple[str, Optional[str]]) -> str:
         d, t = dt
         return f"{d} {t}" if t else d
@@ -520,7 +525,7 @@ def fix_heading_child_lists(lines: List[str]) -> List[str]:
             if m:
                 indent = m.group("indent")
                 # If the first non-space char isn't '#', it's inside a list or something else; skip
-                stripped = line[len(indent):]
+                stripped = line[len(indent) :]
                 if stripped.startswith("#"):
                     # Look ahead to next non-blank, non-fence line
                     j = i + 1

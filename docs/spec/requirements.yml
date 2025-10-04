@@ -246,3 +246,7 @@
   statement: "Preserve original source file modification times (mtime/atime) for all outputs, including transformed Markdown and copied assets."
   status: active
   
+- id: REQ-CLI-001
+  area: CLI
+  statement: "The command line interface (CLI) shall provide an option to show the version"
+  status: active

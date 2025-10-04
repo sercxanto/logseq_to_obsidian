@@ -23,10 +23,10 @@ jobs:
       - name: Install Poetry
         uses: abatilo/actions-poetry@v3
         with:
-          poetry-version: '1.8.3'
+          poetry-version: '2.1.4'
 
       - name: Install dependencies (dev only)
-        run: poetry install --with dev --no-root
+        run: poetry install --with dev
 
       - name: Run tests
         run: poetry run pytest

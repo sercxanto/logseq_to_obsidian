@@ -85,10 +85,7 @@ def test_priority_mapping_dataview():
 @pytest.mark.req("REQ-TASKS-PRIO-001")
 @pytest.mark.req("REQ-TASKS-PRIO-002")
 def test_priority_precedes_attached_block_anchor():
-    src = (
-        "- TODO [#A] Important task\n"
-        "id:: prio123\n"
-    )
+    src = "- TODO [#A] Important task\nid:: prio123\n"
     out = l2o.transform_markdown(src, tasks_format="emoji")
     lines = out.splitlines()
     assert lines[0].endswith("⏫ ^prio123")
@@ -108,10 +105,7 @@ def test_priority_only_recognized_when_after_state():
 
 @pytest.mark.req("REQ-PROPS-002")
 def test_collapsed_on_head_is_filtered_and_content_kept():
-    src = (
-        "- collapsed:: true\n"
-        "  Real content\n"
-    )
+    src = "- collapsed:: true\n  Real content\n"
     out = l2o.transform_markdown(src)
     # Head property filtered; bullet synthesized from content
     assert out == "- Real content\n"
@@ -119,11 +113,7 @@ def test_collapsed_on_head_is_filtered_and_content_kept():
 
 @pytest.mark.req("REQ-BLOCKID-003")
 def test_id_on_head_attaches_to_first_content():
-    src = (
-        "- id:: xyz789\n"
-        "  First content line\n"
-        "  Another\n"
-    )
+    src = "- id:: xyz789\n  First content line\n  Another\n"
     out = l2o.transform_markdown(src)
     lines = out.splitlines()
     assert lines[0].endswith("^xyz789")
@@ -149,10 +139,7 @@ def test_deadline_without_time_repeat_dataview():
 @pytest.mark.req("REQ-TASKS-DATE-004")
 @pytest.mark.req("REQ-TASKS-DATE-005")
 def test_dates_removed_and_appended_before_anchor():
-    src = (
-        "- TODO [#A] Title SCHEDULED: <2024-09-20 Fri +1m>\n"
-        "id:: aid123\n"
-    )
+    src = "- TODO [#A] Title SCHEDULED: <2024-09-20 Fri +1m>\nid:: aid123\n"
     out = l2o.transform_markdown(src, tasks_format="emoji")
     lines = out.splitlines()
     # Expect: checkbox, title, priority, scheduled, repeat, then anchor
@@ -170,10 +157,7 @@ def test_both_scheduled_and_deadline_emitted():
 
 @pytest.mark.req("REQ-TASKS-DATE-007")
 def test_scheduled_on_following_line_same_indent():
-    src = (
-        "- TODO Do stuff\n"
-        "  SCHEDULED: <2024-12-23 Mon>\n"
-    )
+    src = "- TODO Do stuff\n  SCHEDULED: <2024-12-23 Mon>\n"
     out = l2o.transform_markdown(src, tasks_format="emoji")
     lines = out.splitlines()
     assert lines[0] == "- [ ] Do stuff ⏳ 2024-12-23"
@@ -191,11 +175,7 @@ def test_task_recognized_at_nested_indentation():
 
 @pytest.mark.req("REQ-TASKS-DATE-007")
 def test_deeper_indent_is_not_continuation():
-    src = (
-        "  - TODO Parent\n"
-        "  SCHEDULED: <2024-01-02>\n"
-        "    - Child bullet\n"
-    )
+    src = "  - TODO Parent\n  SCHEDULED: <2024-01-02>\n    - Child bullet\n"
     out = l2o.transform_markdown(src, tasks_format="emoji")
     lines = out.splitlines()
     assert lines[0] == "  - [ ] Parent ⏳ 2024-01-02"
@@ -223,11 +203,7 @@ def test_nested_task_under_heading_with_scheduled_on_its_own_line():
 @pytest.mark.req("REQ-HEADCHILD-001")
 @pytest.mark.req("REQ-PROPS-001")
 def test_heading_followed_by_collapsed_then_indented_list_becomes_list_heading():
-    src = (
-        "## Tag 1\n"
-        "collapsed:: true\n"
-        "    - Indentation\n"
-    )
+    src = "## Tag 1\ncollapsed:: true\n    - Indentation\n"
     out = l2o.transform_markdown(src, tasks_format="emoji")
     lines = out.splitlines()
     assert lines[0].startswith("- ## Tag 1")
@@ -256,12 +232,7 @@ def test_wikilink_to_dataview_field_conversion():
 @pytest.mark.req("REQ-LINKNS-001")
 @pytest.mark.req("REQ-LINKNS-003")
 def test_wikilink_after_codeblock_is_converted():
-    src = (
-        "- ```\n"
-        "  [[a/b]]\n"
-        "  ```\n"
-        "- [[a/c]]\n"
-    )
+    src = "- ```\n  [[a/b]]\n  ```\n- [[a/c]]\n"
     out = l2o.replace_wikilinks_to_dv_fields(src, ["a"])
     assert out.endswith("[a::c]\n")
 
@@ -310,13 +281,7 @@ def test_unresolved_block_refs_are_left_unchanged(tmp_path):
 
 @pytest.mark.req("REQ-PROPS-001")
 def test_collapsed_property_is_filtered_on_block_level():
-    src = (
-        "title:: X\n"
-        "\n"
-        "- Item 1\n"
-        "  collapsed:: true\n"
-        "- Item 2\n"
-    )
+    src = "title:: X\n\n- Item 1\n  collapsed:: true\n- Item 2\n"
     out = l2o.transform_markdown(src)
     # Block-level collapsed line removed
     assert "collapsed::" not in out
@@ -363,13 +328,7 @@ def test_markdown_image_with_size_attrs_converts_to_size_suffix():
 
 @pytest.mark.req("REQ-FRONTMATTER-005")
 def test_only_leading_properties_become_yaml_frontmatter():
-    src = (
-        "title:: A\n"
-        "\n"
-        "Body\n"
-        "\n"
-        "title:: B\n"
-    )
+    src = "title:: A\n\nBody\n\ntitle:: B\n"
     out = l2o.transform_markdown(src)
     # Expect YAML front matter with title: A only
     assert out.startswith("---\n")
@@ -384,11 +343,7 @@ def test_only_leading_properties_become_yaml_frontmatter():
 
 @pytest.mark.req("REQ-TITLE-001")
 def test_title_equal_to_output_path_is_suppressed():
-    src = (
-        "title:: folder/note\n"
-        "\n"
-        "Body\n"
-    )
+    src = "title:: folder/note\n\nBody\n"
     out = l2o.transform_markdown(src, expected_title_path="folder/note")
     # No front matter should be present when the only property (title) is dropped
     assert not out.startswith("---\n")
@@ -398,11 +353,7 @@ def test_title_equal_to_output_path_is_suppressed():
 
 @pytest.mark.req("REQ-TITLE-001")
 def test_title_mismatch_warns_and_title_dropped(capsys):
-    src = (
-        "title:: Display Name\n"
-        "\n"
-        "Body\n"
-    )
+    src = "title:: Display Name\n\nBody\n"
     out = l2o.transform_markdown(
         src,
         expected_title_path="folder/note",
@@ -420,11 +371,7 @@ def test_title_mismatch_warns_and_title_dropped(capsys):
 @pytest.mark.req("REQ-HEADCHILD-002")
 @pytest.mark.req("REQ-HEADCHILD-003")
 def test_heading_followed_by_indented_list_becomes_list_heading():
-    src = (
-        "# Heading without '-' at the beginning\n"
-        "\t- list item 1\n"
-        "\t- list item 2\n"
-    )
+    src = "# Heading without '-' at the beginning\n\t- list item 1\n\t- list item 2\n"
     out = l2o.transform_markdown(src)
     lines = out.splitlines()
     assert lines[0].startswith("- # Heading without '-'")
@@ -434,11 +381,7 @@ def test_heading_followed_by_indented_list_becomes_list_heading():
 
 @pytest.mark.req("REQ-HEADCHILD-001")
 def test_heading_followed_by_tab_indented_list_becomes_list_heading():
-    src = (
-        "# Heading with tabs\n"
-        "\t- item A\n"
-        "\t\t- item B\n"
-    )
+    src = "# Heading with tabs\n\t- item A\n\t\t- item B\n"
     out = l2o.transform_markdown(src)
     lines = out.splitlines()
     assert lines[0].startswith("- # Heading with tabs")
@@ -449,22 +392,14 @@ def test_heading_followed_by_tab_indented_list_becomes_list_heading():
 
 @pytest.mark.req("REQ-HEADCHILD-002")
 def test_heading_already_inside_list_is_unchanged():
-    src = (
-        "- # Already a list heading\n"
-        "\t- child\n"
-    )
+    src = "- # Already a list heading\n\t- child\n"
     out = l2o.transform_markdown(src)
     assert out.startswith("- # Already a list heading")
 
 
 @pytest.mark.req("REQ-HEADCHILD-003")
 def test_no_change_inside_code_fence():
-    src = (
-        "```\n"
-        "# Not a real heading\n"
-        "\t- list item\n"
-        "```\n"
-    )
+    src = "```\n# Not a real heading\n\t- list item\n```\n"
     out = l2o.transform_markdown(src)
     # Fenced block should remain untouched
     assert out == src
