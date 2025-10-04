@@ -20,6 +20,22 @@ To install the development dependencies (and the package in editable mode) run:
 poetry install --with dev
 ```
 
+Routine automation lives in Poe (Poe the Poet) tasks. Run them via `poetry run poe <task>`.
+Poe detects the Poetry environment automatically and runs commands inside the virtual
+environment managed by poetry.
+
+So to save typing, it is benefical to install poe:
+
+```shell
+pipx install poe
+```
+
+The above example `poetry run poe <task>` could be written
+
+```shell
+poe <task>
+```
+
 ## How to add new features
 
 See below for details on the several items. It is not necessary to follow the list
@@ -31,6 +47,7 @@ in this specific order. Take it as reminder to not forget something:
 - Add E2E tests if it makes sense
 - Check that linting finds no issues and old and new tests are passing
 - Adapt `README.md` to describe new behavior for users
+- Add a Towncrier fragment in `.changelog/` describing the change
 
 ### Linting (Ruff)
 
@@ -40,15 +57,34 @@ To check if there are linting issues run:
 poetry run ruff check .
 ```
 
+or shorter:
+
+```shell
+poe lint
+```
+
 Some issues could be fixed automatically by:
 
 ```shell
 poetry run ruff check . --fix
 ```
+
+or shorter:
+
+```shell
+poe fixlint
+```
+
 Optional formatting:
 
 ```shell
 poetry run ruff format .
+```
+
+or shorter:
+
+```shell
+poe format
 ```
 
 ### Testing
@@ -58,6 +94,13 @@ To run all tests (unit and E2E):
 ```shell
 poetry run pytest
 ```
+
+or shorter:
+
+```shell
+poe test
+```
+
 The unit tests are stored in `tests/unit`.
 The e2e tests (starting the command line) are stored in `tests/e2e`.
 The pytest run emits code coverage information and writes `coverage.xml` in the project root for IDE/CI integration.
@@ -71,9 +114,24 @@ The expected output is stored in subfolders of `tests/golden`.
 To do linting and tests in one step run:
 
 ```shell
-poetry run python -m tasks
+poe testandlint
 ```
+
 This helper uses the same pytest configuration, so coverage is collected automatically.
+
+### Changelog entries (Towncrier)
+
+- Every user-visible change should come with a fragment file in `.changelog/`.
+  Use the naming pattern `<issue/short-id>.<type>.md` (e.g. `123.added.md`).
+- Valid fragment types are `added`, `changed`, `deprecated`, `removed`, `fixed`, `deprecated` and `security`.
+- Inspect pending fragments with `poetry run poe draftchangelog`.
+- When preparing a release, run `poetry run poe changelog` or use the `release` task (see below) to fold fragments into `CHANGELOG.md`.
+
+### Release workflow (Poe the Poet)
+
+`poe release [patch|minor|major]` runs lint + tests, bumps the version, updates `CHANGELOG.md` via Towncrier, commits, and tags `v<version>`.
+
+If you like to do single steps instead have a look at the defined tasks: `poe help`.
 
 ### Requirements Traceability
 

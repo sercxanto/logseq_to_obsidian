@@ -44,6 +44,8 @@ ruff = "^0.13.1"
 pytest = "^8.4.2"
 pytest-cov = "^5.0.0"
 pyyaml = "^6.0.2"
+towncrier = "^23.11.0"
+poethepoet = "^0.25.0"
 
 [tool.ruff]
 target-version = "py39"
@@ -74,9 +76,72 @@ omit = [
   "src/logseq_to_obsidian/__main__.py",
 ]
 
-#[tool.poetry.scripts]
-#check = "tasks:check"
-#fix = "tasks:fix"
+[tool.towncrier]
+package = "logseq_to_obsidian"
+package_dir = "src"
+filename = "CHANGELOG.md"
+directory = ".changelog"
+title_format = "## [{version}] - {project_date}"
+issue_format = "#{issue}"
+underlines = ["", "", ""]
+
+[tool.towncrier.fragment.added]
+[tool.towncrier.fragment.changed]
+[tool.towncrier.fragment.deprecated]
+[tool.towncrier.fragment.removed]
+[tool.towncrier.fragment.fixed]
+[tool.towncrier.fragment.security]
+
+[tool.poe.tasks]
+
+[tool.poe.tasks.lint]
+cmd = "ruff check ."
+help = "Run static analysis."
+
+[tool.poe.tasks.fixlint]
+cmd = "ruff check . --fix"
+help = "Run automatic fixes."
+
+[tool.poe.tasks.format]
+cmd = "ruff format ."
+help = "Format source code."
+
+[tool.poe.tasks.test]
+cmd = "pytest"
+help = "Run the test suite."
+
+[tool.poe.tasks.testandlint]
+sequence = ["test", "lint"]
+help = "Run test an lint in one step."
+
+[tool.poe.tasks.bumpversion]
+cmd = "poetry version $increment"
+help = "Bump version in pyproject.toml"
+args = [{ name="increment", positional=true, required=true, help="Either 'major', minor'or 'patch'." }]
+
+[tool.poe.tasks._get_version]
+cmd = "poetry version -s"
+
+[tool.poe.tasks.draftchangelog]
+cmd = "towncrier build --draft"
+help = "List pending news fragments without consuming them."
+
+[tool.poe.tasks.changelog]
+cmd = "towncrier build --yes"
+help = "Build the changelog for the configured version number."
+
+[tool.poe.tasks.commitandtagrelease]
+shell = """
+  git commit -am "Release $VERSION"
+  git tag v$VERSION
+"""
+help = "Commits the changes for the new version"
+uses = { VERSION = "_get_version" }
+
+[tool.poe.tasks.release]
+sequence = ["lint", "test", "bumpversion $increment", "changelog", "commitandtagrelease"]
+args = [{ name="increment", positional=true, required=true, help="Either 'major', minor'or 'patch'." }]
+help = "runs lint + tests, bumps the version, updates 'CHANGELOG.md', commits and tags 'v<version>'"
 
 [build-system]
 requires = ["poetry-core>=1.8.0"]
