@@ -8,6 +8,7 @@ from tests.helpers import run_converter
 def _mtime_s(p: Path) -> int:
     return int(p.stat().st_mtime)
 
+
 @pytest.mark.req("REQ-MTIME-001")
 def test_preserve_times_for_markdown_and_assets(tmp_path: Path):
     src = Path("tests/fixtures/logseq/basic").resolve()

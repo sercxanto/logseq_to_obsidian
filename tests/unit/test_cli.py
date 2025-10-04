@@ -4,6 +4,7 @@ import pytest
 
 from logseq_to_obsidian import __version__, parse_args
 
+
 @pytest.mark.req("REQ-CLI-001")
 def test_version_flag_reports_package_version(capsys):
     with pytest.raises(SystemExit) as excinfo:
