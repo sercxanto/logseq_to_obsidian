@@ -60,6 +60,8 @@ poetry run pytest
 ```
 The unit tests are stored in `tests/unit`.
 The e2e tests (starting the command line) are stored in `tests/e2e`.
+The pytest run emits code coverage information and writes `coverage.xml` in the project root for IDE/CI integration.
+Coverage must stay at or above 80% (the test run fails otherwise), and the CLI shim in `src/logseq_to_obsidian/__main__.py` is excluded from the report.
 
 For E2E tests the input folder with an example logseq vault is stored in
 `fixtures/logseq/basic`. This input folder is can be converted with multiple command
@@ -71,6 +73,7 @@ To do linting and tests in one step run:
 ```shell
 poetry run python -m tasks
 ```
+This helper uses the same pytest configuration, so coverage is collected automatically.
 
 ### Requirements Traceability
 

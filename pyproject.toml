@@ -19,6 +19,7 @@ packages = [
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.13.1"
 pytest = "^8.4.2"
+pytest-cov = "^5.0.0"
 pyyaml = "^6.0.2"
 
 [tool.ruff]
@@ -40,9 +41,14 @@ ignore = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "-q"
+addopts = "-q --cov=logseq_to_obsidian --cov-report=term-missing --cov-report=xml --cov-fail-under=80"
 testpaths = [
   "tests",
+]
+
+[tool.coverage.run]
+omit = [
+  "src/logseq_to_obsidian/__main__.py",
 ]
 
 #[tool.poetry.scripts]
