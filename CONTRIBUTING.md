@@ -27,7 +27,7 @@ environment managed by poetry.
 So to save typing, it is benefical to install poe:
 
 ```shell
-pipx install poe
+pipx install poethepoet
 ```
 
 The above example `poetry run poe <task>` could be written
