@@ -44,7 +44,7 @@ ruff = "^0.13.3"
 pytest = "^8.4.2"
 pytest-cov = "^5.0.0"
 pyyaml = "^6.0.3"
-towncrier = "^23.11.0"
+towncrier = "^25.8.0"
 poethepoet = "^0.25.0"
 
 [tool.ruff]
