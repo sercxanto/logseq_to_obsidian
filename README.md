@@ -2,6 +2,7 @@
 
 ![tests](https://github.com/sercxanto/logseq_to_obsidian/actions/workflows/tests.yml/badge.svg)
 ![lint](https://github.com/sercxanto/logseq_to_obsidian/actions/workflows/lint.yml/badge.svg)
+[![codecov](https://codecov.io/gh/sercxanto/logseq_to_obsidian/graph/badge.svg?token=bTE5A3niNf)](https://codecov.io/gh/sercxanto/logseq_to_obsidian)
 
 ## Overview
 
