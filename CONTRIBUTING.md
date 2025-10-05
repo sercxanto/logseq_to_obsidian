@@ -144,17 +144,19 @@ poetry config pypi-token.pypy pypi-...
 Tag the release and push it to gitlab:
 
 ```shell
-git push && git push --tags $(poetry version -s)
+git push && git push --tags v$(poetry version -s)
 ```
 
 Publish to github:
 
-```shell
-git push && git push --tags $(poetry version -s)
-```
-
 [Create a release](https://github.com/sercxanto/logseq_to_obsidian/releases/new) on github referencing
 the pushed tag. Copy the change log for that version to the release notes.
+
+Publish to pypi:
+
+```shell
+poetry publish --build
+```
 
 ### Requirements Traceability
 
