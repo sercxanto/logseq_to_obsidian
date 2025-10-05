@@ -133,6 +133,29 @@ This helper uses the same pytest configuration, so coverage is collected automat
 
 If you like to do single steps instead have a look at the defined tasks: `poe help`.
 
+### Publish the release
+
+Make sure that you have setup the poetry setup correctly and provided the token to poetry, e.g.
+
+```shell
+poetry config poetry config pypi-token.pypy pypi-...
+```
+
+Tag the release and push it to gitlab:
+
+```shell
+git push && git push --tags $(poetry version -s)
+```
+
+Publish to github:
+
+```shell
+git push && git push --tags $(poetry version -s)
+```
+
+[Create a release](https://github.com/sercxanto/logseq_to_obsidian/releases/new) on github referencing
+the pushed tag. Copy the change log for that version to the release notes.
+
 ### Requirements Traceability
 
 - Spec file: `docs/spec/requirements.yml` lists requirement IDs and their status.
