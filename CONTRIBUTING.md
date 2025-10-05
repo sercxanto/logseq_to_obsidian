@@ -138,7 +138,7 @@ If you like to do single steps instead have a look at the defined tasks: `poe he
 Make sure that you have setup the poetry setup correctly and provided the token to poetry, e.g.
 
 ```shell
-poetry config poetry config pypi-token.pypy pypi-...
+poetry config pypi-token.pypy pypi-...
 ```
 
 Tag the release and push it to gitlab:
