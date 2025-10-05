@@ -1,5 +1,8 @@
 # Logseq → Obsidian Converter
 
+![tests](https://github.com/sercxanto/logseq_to_obsidian/actions/workflows/tests.yml/badge.svg)
+![lint](https://github.com/sercxanto/logseq_to_obsidian/actions/workflows/lint.yml/badge.svg)
+
 ## Overview
 
 - Converts a Logseq vault (Markdown flavor) to Obsidian-friendly Markdown.
