@@ -136,6 +136,17 @@ def test_deadline_without_time_repeat_dataview():
     assert out.strip() == "- [ ] [due::2024-09-15] [repeat::every 2 weeks when done]"
 
 
+@pytest.mark.req("REQ-TASKS-001")
+@pytest.mark.req("REQ-TASKS-DATE-001")
+@pytest.mark.req("REQ-TASKS-DATE-002")
+def test_transform_tasks_matches_transform_markdown():
+    src = "- TODO Do thing SCHEDULED: <2025-01-01> DEADLINE: <2025-01-05>\n"
+    emoji_line = l2o.transform_tasks(src, tasks_format="emoji")
+    dataview_line = l2o.transform_tasks(src, tasks_format="dataview")
+    assert emoji_line == l2o.transform_markdown(src, tasks_format="emoji")
+    assert dataview_line == l2o.transform_markdown(src, tasks_format="dataview")
+
+
 @pytest.mark.req("REQ-TASKS-DATE-004")
 @pytest.mark.req("REQ-TASKS-DATE-005")
 def test_dates_removed_and_appended_before_anchor():

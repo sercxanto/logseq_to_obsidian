@@ -295,6 +295,28 @@ def _map_priority_token(letter: Optional[str], tasks_format: str) -> str:
     return f" [priority::{level}]" if level else ""
 
 
+_TASK_DONE_STATES = {"DONE", "CANCELED", "CANCELLED"}
+
+
+def _render_task_line(
+    indent: str,
+    state: str,
+    content: str,
+    priority: Optional[str],
+    scheduled: Optional[tuple[str, Optional[str]]],
+    due: Optional[tuple[str, Optional[str]]],
+    repeat: Optional[tuple[str, int, str]],
+    tasks_format: str,
+) -> str:
+    checkbox = "- [x]" if state in _TASK_DONE_STATES else "- [ ]"
+    base = f"{indent}{checkbox}"
+    if content:
+        base += f" {content}"
+    prio_suffix = _map_priority_token(priority, tasks_format)
+    date_suffix = _format_dates_suffix(scheduled, due, repeat, tasks_format)
+    return f"{base}{prio_suffix}{date_suffix}\n"
+
+
 def transform_tasks(line: str, tasks_format: str = "emoji") -> str:
     """Transform Logseq task states to Obsidian checklist items.
 
@@ -308,18 +330,8 @@ def transform_tasks(line: str, tasks_format: str = "emoji") -> str:
     state = m.group("state")
     prio = m.group("prio")
     rest = m.group("rest")
-    # Extract scheduled/deadline and optional repeater from the remaining text
     cleaned, sched, due, repeat = _extract_dates_and_repeat(rest)
-    prio_suffix = _map_priority_token(prio, tasks_format)
-    date_suffix = _format_dates_suffix(sched, due, repeat, tasks_format)
-    # Build base without trailing space when no remaining text
-    if state in {"DONE", "CANCELED", "CANCELLED"}:
-        base = f"{indent}- [x]"
-    else:
-        base = f"{indent}- [ ]"
-    if cleaned:
-        base += f" {cleaned}"
-    return f"{base}{prio_suffix}{date_suffix}\n"
+    return _render_task_line(indent, state, cleaned, prio, sched, due, repeat, tasks_format)
 
 
 def _plural(unit: str, n: int) -> str:
@@ -674,7 +686,6 @@ def _process_blocks_multiline(lines: List[str], tasks_format: str) -> List[str]:
         repeat: Optional[tuple[str, int, str]] = None
         block_id: Optional[str] = None
         pre_prop_lines: List[str] = []
-        head_is_task = False
         head_state: Optional[str] = None
         head_prio: Optional[str] = None
 
@@ -693,7 +704,6 @@ def _process_blocks_multiline(lines: List[str], tasks_format: str) -> List[str]:
             # Head content
             m_state = STATE_RE.match(after)
             if m_state:
-                head_is_task = True
                 head_state = m_state.group("state")
                 head_prio = m_state.group("prio")
                 rest = m_state.group("rest")
@@ -753,14 +763,17 @@ def _process_blocks_multiline(lines: List[str], tasks_format: str) -> List[str]:
         # Build head line
         head_line: Optional[str] = None
         date_suffix = _format_dates_suffix(sched, due, repeat, tasks_format)
-        if head_is_task:
-            prio_suffix = _map_priority_token(head_prio, tasks_format)
-            checkbox = "- [x]" if head_state in {"DONE", "CANCELED", "CANCELLED"} else "- [ ]"
-            if first_content:
-                head_line = f"{indent}{checkbox} {first_content}{prio_suffix}{date_suffix}\n"
-            else:
-                if prio_suffix or date_suffix:
-                    head_line = f"{indent}{checkbox}{prio_suffix}{date_suffix}\n"
+        if head_state is not None:
+            head_line = _render_task_line(
+                indent,
+                head_state,
+                first_content or "",
+                head_prio,
+                sched,
+                due,
+                repeat,
+                tasks_format,
+            )
         else:
             if first_content:
                 head_line = f"{indent}- {first_content}{date_suffix}\n"
