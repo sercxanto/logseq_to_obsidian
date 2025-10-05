@@ -66,7 +66,7 @@ ignore = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "-q --cov=logseq_to_obsidian --cov-report=term-missing --cov-report=xml --cov-fail-under=80"
+addopts = "-q --cov=logseq_to_obsidian --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=80"
 testpaths = [
   "tests",
 ]

@@ -36,3 +36,9 @@ jobs:
         with:
           name: coverage-${{ matrix.python-version }}
           path: coverage.xml
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        if: ${{ matrix.python-version }} == '3.12'
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
