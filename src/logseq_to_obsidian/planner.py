@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import List, Optional
 
 JOURNAL_DATE_UNDERSCORE_RE = re.compile(r"^(\d{4})_(\d{2})_(\d{2})\.md$")
-JOURNAL_DATE_DASH_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})\.md$")
 
 
 @dataclass
