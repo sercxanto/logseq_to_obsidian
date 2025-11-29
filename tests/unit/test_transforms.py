@@ -42,6 +42,25 @@ def test_emit_yaml_frontmatter_mapping():
     assert "custom: value" in yaml
 
 
+@pytest.mark.req("REQ-FRONTMATTER-003")
+def test_normalize_tags_handles_unicode_characters():
+    tags = l2o.normalize_tags("#가나다, #마바사")
+    assert tags == ["가나다", "마바사"]
+
+
+@pytest.mark.req("REQ-FRONTMATTER-003")
+def test_emit_yaml_frontmatter_handles_underscored_unicode_tags():
+    yaml = l2o.emit_yaml_frontmatter({"tags": "#_가나다, #_마바사"})
+    expected = "---\ntags:\n  - _가나다\n  - _마바사\n---\n\n"
+    assert yaml == expected
+
+
+@pytest.mark.req("REQ-FRONTMATTER-003")
+def test_normalize_tags_ignores_embedded_property_tokens():
+    tags = l2o.normalize_tags("tags:: #_가나다, #_마바사")
+    assert tags == ["_가나다", "_마바사"]
+
+
 @pytest.mark.req("REQ-TASKS-001")
 @pytest.mark.req("REQ-TASKS-002")
 @pytest.mark.req("REQ-TASKS-004")
