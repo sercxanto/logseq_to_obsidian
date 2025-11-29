@@ -35,6 +35,8 @@
 - Block references:
     - `((<uuid>))` → `[[<FileName>#^<uuid>]]` (resolved by scanning all files first).
     - Optional: convert configured wikilinks `[[key/value]]` to Dataview inline fields `[key::value]` (non-embed, no alias, not inside code blocks).
+- Alias links:
+    - `[Display Name]([[Page Name]])` → `[[Page Name|Display Name]]` (outside fenced code blocks).
 - Embeds:
     - `{{embed ((<uuid>))}}` → `![[<FileName>#^<uuid>]]`
     - `{{embed [[Some Page]]}}` → `![[Some Page]]`

@@ -11,6 +11,7 @@ from .transformer import (
     replace_asset_images,
     replace_block_refs,
     replace_embeds,
+    replace_page_alias_links,
     replace_wikilinks_to_dv_fields,
     transform_markdown,
 )
@@ -109,6 +110,7 @@ def main(argv: List[str]) -> int:
             text = pre_texts.get(pl.in_path, pl.in_path.read_text(encoding="utf-8"))
             text = replace_block_refs(text, block_index, in_to_out, opt.output_dir)
             text = replace_embeds(text)
+            text = replace_page_alias_links(text)
             text = replace_wikilinks_to_dv_fields(text, opt.field_keys)
             text = replace_asset_images(text)
             # Ensure a trailing newline at EOF to match golden outputs

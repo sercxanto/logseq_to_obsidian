@@ -39,6 +39,7 @@ SCHED_DEAD_RE = re.compile(
 )
 
 WIKILINK_RE = re.compile(r"(?<!!)\[\[([^\]]+)\]\]")
+ALIAS_LINK_RE = re.compile(r"(?<!\!)\[(?P<label>[^\]]+)\]\(\s*\[\[(?P<target>[^\]]+)\]\]\s*\)")
 
 __all__ = [
     "attach_block_ids",
@@ -51,6 +52,7 @@ __all__ = [
     "replace_asset_images",
     "replace_block_refs",
     "replace_embeds",
+    "replace_page_alias_links",
     "replace_wikilinks_to_dv_fields",
     "transform_markdown",
     "transform_tasks",
@@ -497,6 +499,27 @@ def replace_embeds(text: str) -> str:
     text2 = EMBED_RE.sub(repl, text)
     # After block ref resolution, convert temporary ![[^id]] forms to full links where possible happens in replace_block_refs
     return text2
+
+
+def replace_page_alias_links(text: str) -> str:
+    out_lines: List[str] = []
+    in_fence = False
+    for line in text.splitlines(keepends=True):
+        if _is_fence(line):
+            in_fence = not in_fence
+            out_lines.append(line)
+            continue
+        if in_fence:
+            out_lines.append(line)
+            continue
+
+        def repl(m: re.Match) -> str:
+            label = m.group("label").strip()
+            target = m.group("target").strip()
+            return f"[[{target}|{label}]]"
+
+        out_lines.append(ALIAS_LINK_RE.sub(repl, line))
+    return "".join(out_lines)
 
 
 def replace_asset_images(text: str) -> str:

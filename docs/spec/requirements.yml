@@ -109,6 +109,11 @@
   statement: "Skip conversion inside fenced code blocks."
   status: active
 
+- id: REQ-LINKALIAS-001
+  area: links
+  statement: "Convert Logseq alias markdown links `[Display]([[Page]])` to Obsidian aliases `[[Page|Display]]` outside fenced code blocks."
+  status: active
+
 - id: REQ-EMBED-001
   area: embeds
   statement: "Convert `{{embed ((id))}}` to `![[path#^id]]` after resolving the block ref."

@@ -318,6 +318,21 @@ def test_embed_page_link_converts_to_obsidian_embed():
     assert embedded.strip() == "![[Foo]]"
 
 
+@pytest.mark.req("REQ-LINKALIAS-001")
+def test_markdown_alias_links_convert_to_obsidian_alias():
+    text = "Before [Display Name]([[Page Name]]) after [Docs](https://example.com)\n"
+    out = l2o.replace_page_alias_links(text)
+    assert "[[Page Name|Display Name]]" in out
+    assert "[Docs](https://example.com)" in out
+
+
+@pytest.mark.req("REQ-LINKALIAS-001")
+def test_alias_links_inside_code_fence_are_ignored():
+    text = "```\n[Display Name]([[Page Name]])\n```\n"
+    out = l2o.replace_page_alias_links(text)
+    assert out == text
+
+
 @pytest.mark.req("REQ-IMAGE-001")
 def test_markdown_image_in_assets_converts_to_obsidian_embed(tmp_path):
     # paths relative to physical file location in Logseq pages
