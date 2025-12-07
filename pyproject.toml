@@ -123,12 +123,14 @@ args = [{ name="increment", positional=true, required=true, help="Either 'major'
 cmd = "poetry version -s"
 
 [tool.poe.tasks.draftchangelog]
-cmd = "towncrier build --draft"
+cmd = "towncrier build --draft --version $VERSION"
 help = "List pending news fragments without consuming them."
+uses = { VERSION = "_get_version" }
 
 [tool.poe.tasks.changelog]
-cmd = "towncrier build --yes"
+cmd = "towncrier build --yes --version $VERSION"
 help = "Build the changelog for the configured version number."
+uses = { VERSION = "_get_version" }
 
 [tool.poe.tasks.commitandtagrelease]
 shell = """
