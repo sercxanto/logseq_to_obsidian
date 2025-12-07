@@ -39,6 +39,10 @@ SCHED_DEAD_RE = re.compile(
 )
 
 WIKILINK_RE = re.compile(r"(?<!!)\[\[([^\]]+)\]\]")
+INLINE_WIKILINK_RE = re.compile(r"\[\[([^\]]+)\]\]")
+HASHTAG_RE = re.compile(r"#([\w\-/]+)", flags=re.UNICODE)
+TAG_TOKEN_RE = re.compile(r"(#([\w\-/]+))|(\[\[[^\]]+\]\])", flags=re.UNICODE)
+PROPERTY_DECL_RE = re.compile(r"^[\w\-]+::\s*$")
 ALIAS_LINK_RE = re.compile(r"(?<!\!)\[(?P<label>[^\]]+)\]\(\s*\[\[(?P<target>[^\]]+)\]\]\s*\)")
 
 __all__ = [
@@ -116,22 +120,22 @@ def normalize_tags(val: str) -> List[str]:
     # 1) Consume comma-separated parts left-to-right and extract any [[...]] or #... within each part.
     for part in val.split(","):
         # wikilinks
-        for m in re.finditer(r"\[\[([^\]]+)\]\]", part):
+        for m in INLINE_WIKILINK_RE.finditer(part):
             add(m.group(1))
         # hashtags
-        for m in re.finditer(r"#([A-Za-z0-9_\-/]+)", part):
+        for m in HASHTAG_RE.finditer(part):
             add(m.group(1))
         # plain text remainder (strip wikilinks/hashtags)
-        remainder = re.sub(r"(#([A-Za-z0-9_\-/]+))|(\[\[[^\]]+\]\])", "", part).strip()
-        if remainder:
+        remainder = TAG_TOKEN_RE.sub("", part).strip()
+        if remainder and not PROPERTY_DECL_RE.match(remainder):
             add(remainder)
 
     # 2) Add any additional wikilinks not already included (in appearance order on original string)
-    for m in re.finditer(r"\[\[([^\]]+)\]\]", val):
+    for m in INLINE_WIKILINK_RE.finditer(val):
         add(m.group(1))
 
     # 3) Add any additional hashtags not already included
-    for m in re.finditer(r"#([A-Za-z0-9_\-/]+)", val):
+    for m in HASHTAG_RE.finditer(val):
         add(m.group(1))
 
     return found
