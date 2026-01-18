@@ -24,7 +24,7 @@ ID_PROP_RE = re.compile(r"^\s*id::\s*([A-Za-z0-9_-]+)\s*$")
 BLOCK_REF_RE = re.compile(r"\(\(([A-Za-z0-9_-]{6,})\)\)")
 EMBED_RE = re.compile(r"\{\{embed\s+(.*?)\}\}", flags=re.IGNORECASE)
 MD_IMAGE_RE = re.compile(r"!\[[^\]]*\]\(([^\)]+)\)")
-IMG_WITH_OPT_RE = re.compile(r"!\[[^\]]*\]\(([^\)]+)\)\s*(\{[^}]*\})?")
+IMG_WITH_OPT_RE = re.compile(r"!\[[^\]]*\]\(([^\)]+)\)(?:[ \t]*(\{[^}\n]*\}))?")
 SCHED_DEAD_RE = re.compile(
     r"(?P<kind>SCHEDULED|DEADLINE)\s*:??\s*"  # keyword + optional ':'
     r"<\s*"

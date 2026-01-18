@@ -364,6 +364,13 @@ def test_markdown_image_in_assets_converts_to_obsidian_embed(tmp_path):
     assert out2.strip() == "![[picture.png]]"
 
 
+@pytest.mark.req("REQ-IMAGE-001")
+def test_image_replacement_keeps_following_newline():
+    text = "- ![alt](../assets/picture.png)\n- Next line\n"
+    out = l2o.replace_asset_images(text)
+    assert out == "- ![[picture.png]]\n- Next line\n"
+
+
 @pytest.mark.req("REQ-IMAGE-002")
 def test_markdown_image_with_size_attrs_converts_to_size_suffix():
     text = "![alt](../assets/picture.png){:height 424, :width 675}"
