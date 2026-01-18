@@ -370,6 +370,11 @@ def test_image_replacement_keeps_following_newline():
     out = l2o.replace_asset_images(text)
     assert out == "- ![[picture.png]]\n- Next line\n"
 
+@pytest.mark.req("REQ-IMAGE-001")
+def test_image_replacement_keeps_following_text():
+    text = "- ![alt](../assets/picture.png) - Same line\n"
+    out = l2o.replace_asset_images(text)
+    assert out == "- ![[picture.png]] - Same line\n"
 
 @pytest.mark.req("REQ-IMAGE-002")
 def test_markdown_image_with_size_attrs_converts_to_size_suffix():
