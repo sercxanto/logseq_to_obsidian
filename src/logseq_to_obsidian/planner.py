@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import List, Optional
 
 JOURNAL_DATE_UNDERSCORE_RE = re.compile(r"^(\d{4})_(\d{2})_(\d{2})\.md$")
+PERCENT_ENCODED_RE = re.compile(r"%[0-9A-Fa-f]{2}")
 
 
 @dataclass
@@ -71,7 +72,7 @@ def plan_output_path(p: Path, opt: Options) -> Path:
     return opt.output_dir.joinpath(*parts)
 
 
-def collect_files(opt: Options) -> List[FilePlan]:
+def collect_files(opt: Options, warn_collector: Optional[List[str]] = None) -> List[FilePlan]:
     plans: List[FilePlan] = []
     for root, dirs, files in os.walk(opt.input_dir):
         root_p = Path(root)
@@ -81,9 +82,12 @@ def collect_files(opt: Options) -> List[FilePlan]:
                 if skip in dirs:
                     dirs.remove(skip)
                     if skip == "whiteboards":
-                        print(
+                        msg = (
                             "[WARN] Skipping top-level 'whiteboards/' directory (Logseq whiteboards are not supported)"
                         )
+                        print(msg)
+                        if warn_collector is not None:
+                            warn_collector.append(msg)
                     elif skip == "logseq":
                         # We keep warning behavior concise; logseq folder is silently skipped as metadata
                         pass
@@ -96,6 +100,15 @@ def collect_files(opt: Options) -> List[FilePlan]:
                 rel_first = None
             if rel_first in {"logseq", "whiteboards"}:
                 continue
+            if PERCENT_ENCODED_RE.search(in_path.name):
+                rel = in_path.relative_to(opt.input_dir).as_posix()
+                msg = (
+                    f"[WARN] Detected percent-encoded filename: {rel}. "
+                    "Logseq encodes invalid filename characters; links may need manual cleanup."
+                )
+                print(msg)
+                if warn_collector is not None:
+                    warn_collector.append(msg)
             out_path = plan_output_path(in_path, opt)
             plans.append(FilePlan(in_path=in_path, out_path=out_path, is_markdown=is_markdown(in_path)))
     return plans
