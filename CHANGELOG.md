@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- towncrier release notes start -->
 
+## [0.1.2] - 2026-01-25
+
+### Fixed
+
+- Fix images followed by an indentation (#26)
+- Warn and collect planner warnings (percent-encoded filenames and whiteboards) for clearer conversion output. (#27)
+- Bump ruff from 0.14.7 to 0.14.13 (#30)
+
+
 ## [0.1.1] - 2025-12-07
 
 ### Fixed
