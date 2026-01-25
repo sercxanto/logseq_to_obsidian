@@ -64,7 +64,8 @@ def main(argv: List[str]) -> int:
         f"[CONFIG] daily_folder={opt.daily_folder or '-'} tasks_format={opt.tasks_format} field_keys={','.join(opt.field_keys) or '-'} dry_run={opt.dry_run}"
     )
 
-    plans = collect_files(opt)
+    warn_messages: List[str] = []
+    plans = collect_files(opt, warn_collector=warn_messages)
     total = len(plans)
     md_total = sum(1 for p in plans if p.is_markdown)
     other_total = total - md_total
@@ -74,7 +75,7 @@ def main(argv: List[str]) -> int:
     pre_texts: Dict[Path, str] = {}
     in_to_out: Dict[Path, Path] = {pl.in_path: pl.out_path for pl in plans}
 
-    warn_messages: List[str] = []
+    # warn_messages is shared with planner warnings
     for pl in plans:
         if not pl.is_markdown:
             continue
