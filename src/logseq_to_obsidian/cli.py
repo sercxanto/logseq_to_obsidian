@@ -8,6 +8,7 @@ from typing import Dict, List
 from .planner import Options, collect_files, copy_or_write
 from .transformer import (
     build_block_index,
+    fix_logseq_date_links,
     replace_asset_images,
     replace_block_refs,
     replace_embeds,
@@ -114,6 +115,7 @@ def main(argv: List[str]) -> int:
             text = replace_page_alias_links(text)
             text = replace_wikilinks_to_dv_fields(text, opt.field_keys)
             text = replace_asset_images(text)
+            text = fix_logseq_date_links(text)
             # Ensure a trailing newline at EOF to match golden outputs
             if not text.endswith("\n"):
                 text += "\n"

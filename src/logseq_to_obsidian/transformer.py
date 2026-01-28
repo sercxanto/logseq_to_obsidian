@@ -140,6 +140,26 @@ def normalize_tags(val: str) -> List[str]:
 
     return found
 
+def fix_logseq_date_links(content):
+    """
+    Fixes Logseq specific date links to Obsidian ISO 8601 format.
+    Target format: [[Dayname, DD.MM.YYYY]] -> [[YYYY-MM-DD]]
+    Example: [[Tuesday, 13.01.2026]] -> [[2026-01-13]]
+    """
+    # Regex explanation:
+    # \[\[           : Literal [[
+    # [^,]+,         : Matches the day name (anything until a comma) followed by comma
+    # \s+            : One or more spaces
+    # (\d{2})        : Capture group 1 (Day)
+    # \.             : Literal dot
+    # (\d{2})        : Capture group 2 (Month)
+    # \.             : Literal dot
+    # (\d{4})        : Capture group 3 (Year)
+    # \]\]           : Literal ]]
+    pattern = r"\[\[[^,]+,\s+(\d{2})\.(\d{2})\.(\d{4})\]\]"
+
+    # Replacement using captured groups: [[Year-Month-Day]]
+    return re.sub(pattern, r"[[\3-\2-\1]]", content)
 
 def emit_yaml_frontmatter(props: Dict[str, str]) -> Optional[str]:
     if not props:
