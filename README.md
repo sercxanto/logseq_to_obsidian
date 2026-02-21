@@ -100,6 +100,7 @@ python -m logseq_to_obsidian \
 - Does not parse or migrate the Logseq database; operates purely on Markdown files.
 - Complex block property drawers beyond `id::` are not transformed (left in place).
 - Skips Logseq's internal `logseq/` metadata folder.
+- Skips a top-level `.git/` directory if present.
 - Skips Logseq whiteboards (`whiteboards/`); a warning is emitted since Obsidian cannot read Logseq's whiteboard format.
     - Only normalizes heading + indented list patterns outside fenced code blocks; headings already inside list items are left unchanged.
 - Logseq percent-encodes invalid characters in filenames; this tool preserves those filenames and emits a warning when detected. It does not attempt to decode them to avoid invalid output names or collisions, so you may need to rename notes in Logseq first if Obsidian links are broken.
