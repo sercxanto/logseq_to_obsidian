@@ -78,7 +78,7 @@ def collect_files(opt: Options, warn_collector: Optional[List[str]] = None) -> L
         root_p = Path(root)
         # Do not descend into certain top-level metadata/content folders not useful in Obsidian
         if root_p == opt.input_dir:
-            for skip in ("logseq", "whiteboards"):
+            for skip in (".git", "logseq", "whiteboards"):
                 if skip in dirs:
                     dirs.remove(skip)
                     if skip == "whiteboards":
@@ -98,7 +98,7 @@ def collect_files(opt: Options, warn_collector: Optional[List[str]] = None) -> L
                 rel_first = (in_path.relative_to(opt.input_dir).parts or [None])[0]
             except ValueError:
                 rel_first = None
-            if rel_first in {"logseq", "whiteboards"}:
+            if rel_first in {".git", "logseq", "whiteboards"}:
                 continue
             if PERCENT_ENCODED_RE.search(in_path.name):
                 rel = in_path.relative_to(opt.input_dir).as_posix()

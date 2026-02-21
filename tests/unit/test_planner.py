@@ -75,3 +75,28 @@ def test_collect_files_warns_on_whiteboards_directory(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "whiteboards" in out
     assert any("whiteboards" in msg for msg in warnings)
+
+
+@pytest.mark.req("REQ-STRUCTURE-006")
+def test_collect_files_skips_git_directory(tmp_path, capsys):
+    input_dir = tmp_path / "in"
+    output_dir = tmp_path / "out"
+    (input_dir / ".git").mkdir(parents=True)
+    (input_dir / ".git" / "config").write_text("x", encoding="utf-8")
+    (input_dir / "pages").mkdir(parents=True)
+    (input_dir / "pages" / "Note.md").write_text("content", encoding="utf-8")
+
+    opts = Options(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        daily_folder=None,
+        dry_run=True,
+        tasks_format="emoji",
+        field_keys=[],
+    )
+
+    warnings = []
+    plans = collect_files(opts, warn_collector=warnings)
+    capsys.readouterr()
+
+    assert all(".git" not in plan.in_path.parts for plan in plans)
