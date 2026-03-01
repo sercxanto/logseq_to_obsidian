@@ -337,6 +337,15 @@ def test_embed_page_link_converts_to_obsidian_embed():
     assert embedded.strip() == "![[Foo]]"
 
 
+@pytest.mark.req("REQ-EMBED-003")
+def test_video_and_youtube_macros_convert_to_markdown_embeds():
+    video = "{{video https://www.youtube.com/watch?v=Aq5WXmQQooo}}\n"
+    youtube = "{{youtube https://www.youtube.com/watch?v=Aq5WXmQQooo}}\n"
+
+    assert l2o.replace_embeds(video).strip() == "![](https://www.youtube.com/watch?v=Aq5WXmQQooo)"
+    assert l2o.replace_embeds(youtube).strip() == "![](https://www.youtube.com/watch?v=Aq5WXmQQooo)"
+
+
 @pytest.mark.req("REQ-LINKALIAS-001")
 def test_markdown_alias_links_convert_to_obsidian_alias():
     text = "Before [Display Name]([[Page Name]]) after [Docs](https://example.com)\n"

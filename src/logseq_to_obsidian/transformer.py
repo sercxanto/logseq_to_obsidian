@@ -22,7 +22,7 @@ TASK_RE = re.compile(
 )
 ID_PROP_RE = re.compile(r"^\s*id::\s*([A-Za-z0-9_-]+)\s*$")
 BLOCK_REF_RE = re.compile(r"\(\(([A-Za-z0-9_-]{6,})\)\)")
-EMBED_RE = re.compile(r"\{\{embed\s+(.*?)\}\}", flags=re.IGNORECASE)
+EMBED_RE = re.compile(r"\{\{(?P<kind>embed|video|youtube)\s+(?P<inner>.*?)\}\}", flags=re.IGNORECASE)
 MD_IMAGE_RE = re.compile(r"!\[[^\]]*\]\(([^\)]+)\)")
 IMG_WITH_OPT_RE = re.compile(r"!\[[^\]]*\]\(([^\)]+)\)(?:[ \t]*(\{[^}\n]*\}))?")
 SCHED_DEAD_RE = re.compile(
@@ -486,7 +486,10 @@ def replace_block_refs(text: str, index: Dict[str, Path], in_to_out: Dict[Path, 
 
 def replace_embeds(text: str) -> str:
     def repl(m: re.Match) -> str:
-        inner = m.group(1).strip()
+        kind = m.group("kind").lower()
+        inner = m.group("inner").strip()
+        if kind in {"video", "youtube"}:
+            return f"![]({inner})"
         # block embed: {{embed ((id))}}
         m_bid = re.fullmatch(r"\(\(([A-Za-z0-9_-]{6,})\)\)", inner)
         if m_bid:
