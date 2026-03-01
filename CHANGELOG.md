@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- towncrier release notes start -->
 
+## [0.1.3] - 2026-03-01
+
+### Fixed
+
+- Convert Logseq `{{video ...}}` and `{{youtube ...}}` macros to Markdown embeds for Obsidian (#33)
+- Ignore top-level .git folders in input vaults during conversion (#37)
+- Bump ruff from 0.14.14 to 0.15.2 (#38)
+
+
 ## [0.1.2] - 2026-01-25
 
 ### Fixed
