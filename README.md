@@ -40,6 +40,8 @@
 - Embeds:
     - `{{embed ((<uuid>))}}` → `![[<FileName>#^<uuid>]]`
     - `{{embed [[Some Page]]}}` → `![[Some Page]]`
+    - `{{video https://...}}` → `![](https://...)`
+    - `{{youtube https://...}}` → `![](https://...)`
 - Images in assets:
     - `![alt](../assets/image.png)` or `![alt](assets/image.png)` → `![[image.png]]` (alt text is not preserved)
     - With size attributes: `![alt](../assets/image.png){:height H, :width W}` → `![[image.png|WxH]]` (width × height)

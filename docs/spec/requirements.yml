@@ -124,6 +124,11 @@
   statement: "Convert `{{embed [[Page]]}}` to `![[Page]]`."
   status: active
 
+- id: REQ-EMBED-003
+  area: embeds
+  statement: "Convert `{{video URL}}` and `{{youtube URL}}` to Markdown embeds `![](URL)`."
+  status: active
+
 - id: REQ-IMAGE-001
   area: images
   statement: "Convert Logseq markdown image links to assets (e.g., `![alt](../assets/img.png)`) into Obsidian embeds `![[img.png]]`; alt text is dropped."
