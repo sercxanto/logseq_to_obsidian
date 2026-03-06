@@ -1,0 +1,1 @@
+Convert Logseq org-mode blocks (#+BEGIN/END) to Obsidian format: QUOTE to blockquotes, NOTE/TIP/WARNING/IMPORTANT/CAUTION/EXAMPLE to callouts, COMMENT to %% syntax. Supports nested blocks, bold title extraction, and indented blocks inside list items.

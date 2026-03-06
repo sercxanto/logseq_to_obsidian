@@ -270,3 +270,80 @@
   area: CLI
   statement: "The command line interface (CLI) shall provide an option to show the version"
   status: active
+
+# Org-mode block conversion
+- id: REQ-ORGBLOCK-001
+  area: formatting
+  statement: "Convert #+BEGIN_QUOTE ... #+END_QUOTE to Obsidian > blockquote lines."
+  status: active
+
+- id: REQ-ORGBLOCK-002
+  area: formatting
+  statement: "Convert #+BEGIN_NOTE/TIP/WARNING/IMPORTANT/CAUTION/EXAMPLE to Obsidian callouts > [!type]."
+  status: active
+
+- id: REQ-ORGBLOCK-003
+  area: formatting
+  statement: "Extract first **bold line** inside a callout block as the callout title on the header line."
+  status: active
+
+- id: REQ-ORGBLOCK-004
+  area: formatting
+  statement: "Convert #+BEGIN_COMMENT ... #+END_COMMENT to Obsidian %% comment blocks."
+  status: active
+
+- id: REQ-ORGBLOCK-005
+  area: formatting
+  statement: "Handle nested org-mode blocks (e.g., QUOTE inside NOTE) producing nested blockquotes."
+  status: active
+
+- id: REQ-ORGBLOCK-006
+  area: formatting
+  statement: "Handle org-mode blocks inside indented list items, preserving indent on output."
+  status: active
+
+# Highlights
+- id: REQ-HIGHLIGHT-001
+  area: formatting
+  statement: "Convert ^^text^^ highlight syntax to Obsidian ==text== syntax."
+  status: active
+
+- id: REQ-HIGHLIGHT-002
+  area: formatting
+  statement: "Skip highlight conversion inside fenced code blocks."
+  status: active
+
+# Numbered lists
+- id: REQ-NUMLIST-001
+  area: formatting
+  statement: "Convert bullet items with logseq.order-list-type:: number property to N. numbered list items."
+  status: active
+
+- id: REQ-NUMLIST-002
+  area: formatting
+  statement: "Sequential numbering resets when indent changes or a non-numbered item appears."
+  status: active
+
+# Logbook removal
+- id: REQ-LOGBOOK-001
+  area: properties
+  statement: "Remove :LOGBOOK: ... :END: blocks from the text."
+  status: active
+
+# LogSeq property cleanup
+- id: REQ-LOGSEQPROP-001
+  area: properties
+  statement: "Remove remaining logseq.* namespaced block properties."
+  status: active
+
+# Tweet embeds
+- id: REQ-EMBED-004
+  area: embeds
+  statement: "Convert {{tweet URL}} to Markdown embed ![](URL)."
+  status: active
+
+# Outbreak task date properties
+- id: REQ-TASKDATE-001
+  area: tasks
+  statement: "Convert .created/.completed/.cancelled:: [[date]] properties to emoji date suffixes (➕/✅/❌)."
+  status: active
