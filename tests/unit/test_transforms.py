@@ -471,3 +471,291 @@ def test_no_change_inside_code_fence():
     out = l2o.transform_markdown(src)
     # Fenced block should remain untouched
     assert out == src
+
+
+# --- Org-mode block conversion ---
+
+
+@pytest.mark.req("REQ-ORGBLOCK-001")
+def test_quote_block_to_blockquote():
+    src = "#+BEGIN_QUOTE\nsome text\nmore text\n#+END_QUOTE\n"
+    out = l2o.transform_markdown(src)
+    assert "> some text\n" in out
+    assert "> more text\n" in out
+    assert "#+BEGIN" not in out
+    assert "#+END" not in out
+
+
+@pytest.mark.req("REQ-ORGBLOCK-002")
+def test_note_block_to_callout():
+    src = "#+BEGIN_NOTE\ncontent line\n#+END_NOTE\n"
+    out = l2o.transform_markdown(src)
+    assert "> [!note]\n" in out
+    assert "> content line\n" in out
+
+
+@pytest.mark.req("REQ-ORGBLOCK-002")
+def test_tip_block_to_callout():
+    src = "#+BEGIN_TIP\ntip content\n#+END_TIP\n"
+    out = l2o.transform_markdown(src)
+    assert "> [!tip]\n" in out
+    assert "> tip content\n" in out
+
+
+@pytest.mark.req("REQ-ORGBLOCK-002")
+def test_warning_block_to_callout():
+    src = "#+BEGIN_WARNING\ndanger ahead\n#+END_WARNING\n"
+    out = l2o.transform_markdown(src)
+    assert "> [!warning]\n" in out
+    assert "> danger ahead\n" in out
+
+
+@pytest.mark.req("REQ-ORGBLOCK-002")
+def test_example_block_to_callout():
+    src = "#+BEGIN_EXAMPLE\nexample code\n#+END_EXAMPLE\n"
+    out = l2o.transform_markdown(src)
+    assert "> [!example]\n" in out
+
+
+@pytest.mark.req("REQ-ORGBLOCK-002")
+def test_unknown_block_type_defaults_to_note():
+    src = "#+BEGIN_CENTER\ncentered text\n#+END_CENTER\n"
+    out = l2o.transform_markdown(src)
+    assert "> [!note]\n" in out
+    assert "> centered text\n" in out
+
+
+@pytest.mark.req("REQ-ORGBLOCK-003")
+def test_bold_title_extraction():
+    src = "#+BEGIN_NOTE\n**My Title**\ncontent here\n#+END_NOTE\n"
+    out = l2o.transform_markdown(src)
+    assert "> [!note] My Title\n" in out
+    assert "> content here\n" in out
+    assert "**My Title**" not in out
+
+
+@pytest.mark.req("REQ-ORGBLOCK-003")
+def test_no_title_extraction_for_quote():
+    src = "#+BEGIN_QUOTE\n**bold text**\nmore\n#+END_QUOTE\n"
+    out = l2o.transform_markdown(src)
+    assert "> **bold text**\n" in out
+    assert "[!quote]" not in out
+
+
+@pytest.mark.req("REQ-ORGBLOCK-004")
+def test_comment_block_to_obsidian_comment():
+    src = "#+BEGIN_COMMENT\nhidden text\nanother line\n#+END_COMMENT\n"
+    out = l2o.transform_markdown(src)
+    assert "%%\n" in out
+    assert "hidden text\n" in out
+    assert "#+BEGIN" not in out
+
+
+@pytest.mark.req("REQ-ORGBLOCK-005")
+def test_nested_blocks():
+    src = "#+BEGIN_NOTE\n**Outer**\nouter content\n#+BEGIN_QUOTE\ninner quote\n#+END_QUOTE\nmore outer\n#+END_NOTE\n"
+    out = l2o.transform_markdown(src)
+    assert "> [!note] Outer\n" in out
+    assert "> outer content\n" in out
+    assert "> > inner quote\n" in out
+    assert "> more outer\n" in out
+
+
+@pytest.mark.req("REQ-ORGBLOCK-006")
+def test_orgblock_inside_indented_list():
+    src = "- bullet\n  #+BEGIN_NOTE\n  **Title**\n  content\n  #+END_NOTE\n"
+    out = l2o.transform_markdown(src)
+    assert "  > [!note] Title\n" in out
+    assert "  > content\n" in out
+
+
+@pytest.mark.req("REQ-ORGBLOCK-001")
+def test_empty_quote_block():
+    src = "#+BEGIN_QUOTE\n#+END_QUOTE\n"
+    out = l2o.transform_markdown(src)
+    assert "#+BEGIN" not in out
+    assert "#+END" not in out
+
+
+# --- Highlights ---
+
+
+@pytest.mark.req("REQ-HIGHLIGHT-001")
+def test_highlight_conversion():
+    src = "- Text with ^^a highlight^^ in the middle\n"
+    out = l2o.transform_markdown(src)
+    assert "==a highlight==" in out
+    assert "^^" not in out
+
+
+@pytest.mark.req("REQ-HIGHLIGHT-001")
+def test_multiple_highlights_on_one_line():
+    src = "- ^^first^^ and ^^second^^\n"
+    out = l2o.transform_markdown(src)
+    assert "==first==" in out
+    assert "==second==" in out
+
+
+@pytest.mark.req("REQ-HIGHLIGHT-002")
+def test_highlights_inside_code_fence_are_skipped():
+    src = "```\n^^not a highlight^^\n```\n"
+    out = l2o.transform_markdown(src)
+    assert "^^not a highlight^^" in out
+    assert "==" not in out
+
+
+# --- Numbered lists ---
+
+
+@pytest.mark.req("REQ-NUMLIST-001")
+def test_numbered_list_basic():
+    src = (
+        "- one\n"
+        "  logseq.order-list-type:: number\n"
+        "- two\n"
+        "  logseq.order-list-type:: number\n"
+        "- three\n"
+        "  logseq.order-list-type:: number\n"
+    )
+    out = l2o.transform_markdown(src)
+    lines = out.splitlines()
+    assert lines[0] == "1. one"
+    assert lines[1] == "2. two"
+    assert lines[2] == "3. three"
+    assert "logseq.order-list-type" not in out
+
+
+@pytest.mark.req("REQ-NUMLIST-002")
+def test_numbered_list_resets_after_non_numbered():
+    src = (
+        "- a\n"
+        "  logseq.order-list-type:: number\n"
+        "- b\n"
+        "  logseq.order-list-type:: number\n"
+        "- regular bullet\n"
+        "- c\n"
+        "  logseq.order-list-type:: number\n"
+    )
+    out = l2o.transform_markdown(src)
+    lines = out.splitlines()
+    assert lines[0] == "1. a"
+    assert lines[1] == "2. b"
+    assert lines[2] == "- regular bullet"
+    assert lines[3] == "1. c"
+
+
+@pytest.mark.req("REQ-NUMLIST-001")
+@pytest.mark.req("REQ-NUMLIST-002")
+def test_nested_numbered_lists():
+    src = (
+        "- outer one\n"
+        "  logseq.order-list-type:: number\n"
+        "    - inner a\n"
+        "      logseq.order-list-type:: number\n"
+        "    - inner b\n"
+        "      logseq.order-list-type:: number\n"
+        "- outer two\n"
+        "  logseq.order-list-type:: number\n"
+        "    - inner c\n"
+        "      logseq.order-list-type:: number\n"
+    )
+    out = l2o.transform_markdown(src)
+    lines = out.splitlines()
+    assert lines[0] == "1. outer one"
+    assert lines[1] == "    1. inner a"
+    assert lines[2] == "    2. inner b"
+    assert lines[3] == "2. outer two"
+    assert lines[4] == "    1. inner c"
+
+
+# --- Logbook removal ---
+
+
+@pytest.mark.req("REQ-LOGBOOK-001")
+def test_logbook_removal():
+    src = (
+        "- TODO task\n"
+        "  :LOGBOOK:\n"
+        "  CLOCK: [2024-01-15 Mon 09:00]--[2024-01-15 Mon 10:30] =>  01:30\n"
+        "  :END:\n"
+        "- next item\n"
+    )
+    out = l2o.transform_markdown(src)
+    assert ":LOGBOOK:" not in out
+    assert ":END:" not in out
+    assert "CLOCK:" not in out
+    assert "next item" in out
+
+
+@pytest.mark.req("REQ-LOGBOOK-001")
+def test_empty_logbook_removal():
+    src = "- item\n  :LOGBOOK:\n  :END:\n"
+    out = l2o.transform_markdown(src)
+    assert ":LOGBOOK:" not in out
+    assert ":END:" not in out
+
+
+# --- LogSeq property cleanup ---
+
+
+@pytest.mark.req("REQ-LOGSEQPROP-001")
+def test_logseq_property_removal():
+    src = "- item\n  logseq.toc:: true\n  logseq.table.version:: 2\n"
+    out = l2o.transform_markdown(src)
+    assert "logseq.toc" not in out
+    assert "logseq.table" not in out
+    assert "item" in out
+
+
+# --- Tweet embeds ---
+
+
+@pytest.mark.req("REQ-EMBED-004")
+def test_tweet_embed_conversion():
+    text = "{{tweet https://twitter.com/user/status/123456}}\n"
+    out = l2o.replace_embeds(text)
+    assert out.strip() == "![](https://twitter.com/user/status/123456)"
+
+
+# --- Task date properties ---
+
+
+@pytest.mark.req("REQ-TASKDATE-001")
+def test_created_property_to_emoji():
+    src = "- TODO some task\n  .created:: [[2024-01-15]]\n"
+    out = l2o.transform_markdown(src)
+    assert "➕ 2024-01-15" in out
+    assert ".created::" not in out
+
+
+@pytest.mark.req("REQ-TASKDATE-001")
+def test_completed_property_to_emoji():
+    src = "- DONE finished task\n  .completed:: [[2024-01-20]]\n"
+    out = l2o.transform_markdown(src)
+    assert "✅ 2024-01-20" in out
+    assert ".completed::" not in out
+
+
+@pytest.mark.req("REQ-TASKDATE-001")
+def test_cancelled_property_to_emoji():
+    src = "- CANCELLED skipped task\n  .cancelled:: [[2024-02-01]]\n"
+    out = l2o.transform_markdown(src)
+    assert "❌ 2024-02-01" in out
+    assert ".cancelled::" not in out
+
+
+@pytest.mark.req("REQ-TASKDATE-001")
+def test_multiple_date_properties_combined():
+    src = "- DONE task\n  .created:: [[2024-01-01]]\n  .completed:: [[2024-01-10]]\n"
+    out = l2o.transform_markdown(src)
+    assert "➕ 2024-01-01" in out
+    assert "✅ 2024-01-10" in out
+
+
+@pytest.mark.req("REQ-TASKDATE-001")
+def test_date_property_before_block_anchor():
+    src = "- TODO task\n  .created:: [[2024-01-15]]\nid:: abc123\n"
+    out = l2o.transform_markdown(src)
+    line = out.splitlines()[0]
+    assert line.endswith("^abc123")
+    assert "➕ 2024-01-15" in line
