@@ -342,8 +342,8 @@
   statement: "Convert {{tweet URL}} to Markdown embed ![](URL)."
   status: active
 
-# Outbreak task date properties
+# Dot-prefixed task date properties
 - id: REQ-TASKDATE-001
   area: tasks
-  statement: "Convert .created/.completed/.cancelled:: [[date]] properties to emoji date suffixes (➕/✅/❌)."
+  statement: "Convert dot-prefixed task date properties (.created/.completed/.cancelled:: [[date]]) to Obsidian Tasks emoji date suffixes (➕/✅/❌)."
   status: active

@@ -45,13 +45,21 @@ TAG_TOKEN_RE = re.compile(r"(#([\w\-/]+))|(\[\[[^\]]+\]\])", flags=re.UNICODE)
 PROPERTY_DECL_RE = re.compile(r"^[\w\-]+::\s*$")
 ALIAS_LINK_RE = re.compile(r"(?<!\!)\[(?P<label>[^\]]+)\]\(\s*\[\[(?P<target>[^\]]+)\]\]\s*\)")
 
+# Logseq time-tracker :LOGBOOK: ... :END: blocks (multi-line, possibly indented)
 LOGBOOK_RE = re.compile(r"^\s*:LOGBOOK:\s*\n(?:.*\n)*?\s*:END:\s*\n?", flags=re.MULTILINE)
+# Logseq ^^highlight^^ syntax
 HIGHLIGHT_RE = re.compile(r"\^\^(.*?)\^\^")
+# Logseq hidden property that marks a bullet as a numbered list item
 NUMBERED_PROP_RE = re.compile(r"^\s*logseq\.order-list-type::\s*number\s*$")
+# Any remaining logseq.* namespaced block properties (cleanup pass)
 LOGSEQ_PROP_LINE_RE = re.compile(r"^\s*logseq\.\S+::\s*.*$\n?", flags=re.MULTILINE)
-OUTBREAK_DATE_PROP_RE = re.compile(r"^(\s*)\.(\w+)::\s*\[\[(\d{4}-\d{2}-\d{2})\]\]\s*$")
+# Dot-prefixed task date properties: .created:: [[YYYY-MM-DD]], .completed::, .cancelled::
+# These are used to store Obsidian Tasks emoji dates as Logseq block properties.
+TASK_DATE_PROP_RE = re.compile(r"^(\s*)\.(\w+)::\s*\[\[(\d{4}-\d{2}-\d{2})\]\]\s*$")
+# Trailing block anchor like ^abc123 at end of line
 BLOCK_ANCHOR_TRAILING_RE = re.compile(r"(\s+\^[A-Za-z0-9_-]+)$")
 
+# Logseq #+BEGIN_TYPE -> Obsidian callout type; unknown types fall back to "note"
 _CALLOUT_TYPE_MAP: Dict[str, str] = {
     "NOTE": "note",
     "TIP": "tip",
@@ -59,7 +67,7 @@ _CALLOUT_TYPE_MAP: Dict[str, str] = {
     "CAUTION": "caution",
     "WARNING": "warning",
     "EXAMPLE": "example",
-    "CENTER": "note",
+    "CENTER": "note",  # best-effort fallback
     "VERSE": "note",
     "PINNED": "note",
 }
@@ -811,6 +819,7 @@ def convert_orgmode_blocks(text: str) -> str:
         block_indent = m.group(1)
         block_type = m.group(2).upper()
 
+        # Find matching #+END_TYPE, tracking depth for any nested BEGIN/END pairs
         j = i + 1
         depth = 1
         while j < len(lines):
@@ -824,13 +833,16 @@ def convert_orgmode_blocks(text: str) -> str:
             j += 1
 
         if depth != 0:
+            # Unclosed block; leave the #+BEGIN line as-is
             out.append(line)
             i += 1
             continue
 
+        # Recursively process inner content so nested blocks are converted first
         inner_text = "".join(lines[i + 1 : j])
         inner_text = convert_orgmode_blocks(inner_text)
 
+        # Strip the block's indentation from inner lines so we can re-prefix uniformly
         processed: List[str] = []
         for il in inner_text.splitlines():
             if il.startswith(block_indent):
@@ -850,6 +862,7 @@ def convert_orgmode_blocks(text: str) -> str:
                 else:
                     out.append(f"{block_indent}>\n")
         else:
+            # Callout block: first **bold line** (if any) becomes the callout title
             callout_type = _CALLOUT_TYPE_MAP.get(block_type, "note")
             title = ""
             content_start = 0
@@ -894,6 +907,8 @@ def convert_highlights(text: str) -> str:
 
 def convert_numbered_lists(lines: List[str]) -> List[str]:
     """Convert logseq.order-list-type:: number items to N. numbered lists."""
+    # Pass 1: identify which bullet lines should become numbered and which property lines to drop.
+    # Walk backward from each property line to find its parent bullet (skipping continuations).
     bullet_to_number: Dict[int, bool] = {}
     remove: set = set()
 
@@ -901,12 +916,14 @@ def convert_numbered_lists(lines: List[str]) -> List[str]:
         if NUMBERED_PROP_RE.match(line):
             for k in range(i - 1, -1, -1):
                 if not lines[k].strip():
-                    break
+                    break  # blank line = paragraph break, stop searching
                 if HEAD_BULLET_RE.match(lines[k]):
                     bullet_to_number[k] = True
                     remove.add(i)
                     break
 
+    # Pass 2: emit output with sequential numbering per indent level.
+    # Counters reset when a non-numbered bullet appears at the same indent or shallower.
     out: List[str] = []
     counters: Dict[int, int] = {}
 
@@ -919,6 +936,7 @@ def convert_numbered_lists(lines: List[str]) -> List[str]:
             after = m.group("after")
             indent_len = _indent_width(line)[0]
             counters[indent_len] = counters.get(indent_len, 0) + 1
+            # Reset deeper-nested counters when a shallower item appears
             for k in list(counters.keys()):
                 if k > indent_len:
                     del counters[k]
@@ -926,6 +944,7 @@ def convert_numbered_lists(lines: List[str]) -> List[str]:
         else:
             m = HEAD_BULLET_RE.match(line)
             if m:
+                # Non-numbered bullet resets counters at this level and deeper
                 indent_len = _indent_width(line)[0]
                 for k in list(counters.keys()):
                     if k >= indent_len:
@@ -940,7 +959,8 @@ def remove_logseq_properties(text: str) -> str:
     return LOGSEQ_PROP_LINE_RE.sub("", text)
 
 
-_OUTBREAK_DATE_EMOJI_MAP = {
+# Dot-prefixed property name -> Obsidian Tasks emoji for task lifecycle dates
+_TASK_DATE_EMOJI_MAP = {
     "created": "➕",
     "completed": "✅",
     "cancelled": "❌",
@@ -948,18 +968,25 @@ _OUTBREAK_DATE_EMOJI_MAP = {
 
 
 def convert_task_date_properties(lines: List[str]) -> List[str]:
-    """Convert .created/.completed/.cancelled properties to emoji date suffixes."""
+    """Convert dot-prefixed task date properties to Obsidian Tasks emoji date suffixes.
+
+    Properties like ``.created:: [[2024-01-15]]`` are converted to ``➕ 2024-01-15``
+    appended to the preceding task line.  If the task line already has a trailing
+    block anchor (``^id``), the date is inserted before it.
+    """
     out: List[str] = []
     for line in lines:
-        m = OUTBREAK_DATE_PROP_RE.match(line)
+        m = TASK_DATE_PROP_RE.match(line)
         if m:
             prop_name = m.group(2)
             date = m.group(3)
-            emoji = _OUTBREAK_DATE_EMOJI_MAP.get(prop_name)
+            emoji = _TASK_DATE_EMOJI_MAP.get(prop_name)
             if emoji and out:
+                # Walk backward to the nearest non-empty line and append the emoji date
                 for k in range(len(out) - 1, -1, -1):
                     if out[k].strip():
                         base = out[k].rstrip("\n")
+                        # Preserve trailing block anchor (e.g. ^abc123) by inserting before it
                         anchor_m = BLOCK_ANCHOR_TRAILING_RE.search(base)
                         if anchor_m:
                             base = base[: anchor_m.start()]
@@ -1001,22 +1028,31 @@ def transform_markdown(
     yaml = emit_yaml_frontmatter(props)
 
     body_lines = lines[consumed:]
+    # Drop leading blank lines in body; YAML already provides a separating blank line
     while body_lines and not body_lines[0].strip():
         body_lines = body_lines[1:]
 
+    # Text-level passes that must run before line-level block processing
     body_text = "".join(body_lines)
     body_text = remove_logbook(body_text)
     body_text = convert_orgmode_blocks(body_text)
     body_text = convert_highlights(body_text)
     body_lines = body_text.splitlines(keepends=True)
 
+    # Normalize heading + indented child list cases by making the heading a list item ("- # Heading")
     body_lines = fix_heading_child_lists(body_lines)
+    # Parse bullet blocks (tasks and normal bullets), supporting logical lines spanning multiple physical lines
     body_lines = _process_blocks_multiline(body_lines, tasks_format=tasks_format)
+    # Convert logseq.order-list-type:: number bullets to standard numbered lists
     body_lines = convert_numbered_lists(body_lines)
+    # Convert dot-prefixed task date properties (.created, .completed, .cancelled) to emoji suffixes
     body_lines = convert_task_date_properties(body_lines)
+    # Block ids (also filters block-level properties like 'collapsed::')
     body_lines = attach_block_ids(body_lines)
+    # Re-run heading child list normalization in case property filtering exposed a heading directly before an indented list
     body_lines = fix_heading_child_lists(body_lines)
 
     out = (yaml or "") + "".join(body_lines)
+    # Final cleanup: remove any leftover logseq.* namespaced properties
     out = remove_logseq_properties(out)
     return out
