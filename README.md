@@ -7,7 +7,7 @@
 ## Overview
 
 - Converts a Logseq vault (Markdown flavor) to Obsidian-friendly Markdown.
-- Handles page properties → YAML front matter, task statuses, block IDs, and block references.
+- Handles page properties → YAML front matter, task statuses, block IDs, block references, org-mode blocks → callouts, highlights, numbered lists, and more.
 - Preserves non-page folders; moves `pages/` content to the vault root.
 
 ## Features
@@ -42,9 +42,29 @@
     - `{{embed [[Some Page]]}}` → `![[Some Page]]`
     - `{{video https://...}}` → `![](https://...)`
     - `{{youtube https://...}}` → `![](https://...)`
+    - `{{tweet https://...}}` → `![](https://...)`
 - Images in assets:
     - `![alt](../assets/image.png)` or `![alt](assets/image.png)` → `![[image.png]]` (alt text is not preserved)
     - With size attributes: `![alt](../assets/image.png){:height H, :width W}` → `![[image.png|WxH]]` (width × height)
+- Org-mode blocks:
+    - `#+BEGIN_QUOTE` ... `#+END_QUOTE` → `>` blockquote lines.
+    - `#+BEGIN_NOTE`, `#+BEGIN_TIP`, `#+BEGIN_WARNING`, `#+BEGIN_IMPORTANT`, `#+BEGIN_CAUTION`, `#+BEGIN_EXAMPLE` → Obsidian `> [!type]` callouts. The first **bold line** inside the block becomes the callout title.
+    - `#+BEGIN_COMMENT` ... `#+END_COMMENT` → `%%` ... `%%` (Obsidian hidden comments).
+    - Other block types (`CENTER`, `VERSE`, `PINNED`) fall back to `> [!note]`.
+    - Nested blocks are supported (e.g., a quote inside a callout produces nested `> > ...`).
+    - Blocks inside indented list items preserve their indentation in output.
+- Highlights:
+    - `^^text^^` → `==text==` (Obsidian highlight syntax). Skipped inside fenced code blocks.
+- Numbered lists:
+    - Logseq stores numbered lists as regular bullets with a hidden `logseq.order-list-type:: number` property. These are converted to standard Markdown numbered lists (`1.`, `2.`, `3.`...) with correct sequential numbering that resets across indent levels and non-numbered items.
+- Task date properties:
+    - `created:: [[YYYY-MM-DD]]` or `created:: YYYY-MM-DD` → appends `➕ YYYY-MM-DD`
+    - `completed:: ...` or `done:: ...` → appends `✅ YYYY-MM-DD`
+    - `cancelled:: ...` or `canceled:: ...` → appends `❌ YYYY-MM-DD`
+    - Works with or without a leading dot (e.g., `.created::`) and with or without `[[]]` around the date.
+- Logseq metadata cleanup:
+    - `:LOGBOOK:` ... `:END:` time-tracker blocks are removed.
+    - Remaining `logseq.*` namespaced block properties (e.g., `logseq.toc::`) are removed.
 - Headings followed by indented lists:
     - If a heading line is immediately followed by an indented list (≥4 spaces or tabs), prefix the heading with `- ` (i.e., `- # Heading`).
     - Rationale: Logseq treats such lists as children of the heading; Obsidian otherwise renders them as quoted/code blocks. This keeps folding behavior aligned.
@@ -100,7 +120,6 @@ python -m logseq_to_obsidian \
 ## Limitations
 
 - Does not parse or migrate the Logseq database; operates purely on Markdown files.
-- Complex block property drawers beyond `id::` are not transformed (left in place).
 - Skips Logseq's internal `logseq/` metadata folder.
 - Skips a top-level `.git/` directory if present.
 - Skips Logseq whiteboards (`whiteboards/`); a warning is emitted since Obsidian cannot read Logseq's whiteboard format.

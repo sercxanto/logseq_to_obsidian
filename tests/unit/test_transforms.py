@@ -759,3 +759,43 @@ def test_date_property_before_block_anchor():
     line = out.splitlines()[0]
     assert line.endswith("^abc123")
     assert "➕ 2024-01-15" in line
+
+
+@pytest.mark.req("REQ-TASKDATE-001")
+def test_date_property_without_dot_prefix():
+    src = "- TODO some task\n  created:: [[2024-03-01]]\n"
+    out = l2o.transform_markdown(src)
+    assert "➕ 2024-03-01" in out
+    assert "created::" not in out
+
+
+@pytest.mark.req("REQ-TASKDATE-001")
+def test_date_property_bare_date_without_brackets():
+    src = "- DONE finished task\n  .completed:: 2024-02-15\n"
+    out = l2o.transform_markdown(src)
+    assert "✅ 2024-02-15" in out
+    assert ".completed::" not in out
+
+
+@pytest.mark.req("REQ-TASKDATE-001")
+def test_date_property_done_alias():
+    src = "- DONE task\n  done:: [[2024-04-10]]\n"
+    out = l2o.transform_markdown(src)
+    assert "✅ 2024-04-10" in out
+    assert "done::" not in out
+
+
+@pytest.mark.req("REQ-TASKDATE-001")
+def test_date_property_canceled_alias():
+    src = "- CANCELLED task\n  canceled:: 2024-05-20\n"
+    out = l2o.transform_markdown(src)
+    assert "❌ 2024-05-20" in out
+    assert "canceled::" not in out
+
+
+@pytest.mark.req("REQ-TASKDATE-001")
+def test_date_property_no_dot_no_brackets_combined():
+    src = "- DONE task\n  created:: 2024-01-01\n  completed:: 2024-01-10\n"
+    out = l2o.transform_markdown(src)
+    assert "➕ 2024-01-01" in out
+    assert "✅ 2024-01-10" in out
