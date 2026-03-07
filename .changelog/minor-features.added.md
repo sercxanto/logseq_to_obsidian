@@ -1,1 +1,0 @@
-Add tweet embed conversion ({{tweet URL}} to ![](URL)), :LOGBOOK: block removal, logseq.* property cleanup, and task date property conversion (created/completed/done/cancelled/canceled to emoji suffixes, with or without dot prefix or [[]] brackets).
