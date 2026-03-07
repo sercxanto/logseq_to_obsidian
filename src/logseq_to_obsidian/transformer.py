@@ -53,9 +53,9 @@ HIGHLIGHT_RE = re.compile(r"\^\^(.*?)\^\^")
 NUMBERED_PROP_RE = re.compile(r"^\s*logseq\.order-list-type::\s*number\s*$")
 # Any remaining logseq.* namespaced block properties (cleanup pass)
 LOGSEQ_PROP_LINE_RE = re.compile(r"^\s*logseq\.\S+::\s*.*$\n?", flags=re.MULTILINE)
-# Dot-prefixed task date properties: .created:: [[YYYY-MM-DD]], .completed::, .cancelled::
-# These are used to store Obsidian Tasks emoji dates as Logseq block properties.
-TASK_DATE_PROP_RE = re.compile(r"^(\s*)\.(\w+)::\s*\[\[(\d{4}-\d{2}-\d{2})\]\]\s*$")
+# Task date properties: created:: [[YYYY-MM-DD]], .completed:: 2024-01-15, etc.
+# Matches with or without a leading dot and with or without [[wiki-link]] brackets around the date.
+TASK_DATE_PROP_RE = re.compile(r"^(\s*)\.?(\w+)::\s*(?:\[\[)?(\d{4}-\d{2}-\d{2})(?:\]\])?\s*$")
 # Trailing block anchor like ^abc123 at end of line
 BLOCK_ANCHOR_TRAILING_RE = re.compile(r"(\s+\^[A-Za-z0-9_-]+)$")
 
@@ -959,20 +959,27 @@ def remove_logseq_properties(text: str) -> str:
     return LOGSEQ_PROP_LINE_RE.sub("", text)
 
 
-# Dot-prefixed property name -> Obsidian Tasks emoji for task lifecycle dates
+# Task date property name -> Obsidian Tasks emoji for task lifecycle dates.
+# Recognizes common variants (done/completed, cancelled/canceled).
 _TASK_DATE_EMOJI_MAP = {
     "created": "➕",
     "completed": "✅",
+    "done": "✅",
     "cancelled": "❌",
+    "canceled": "❌",
 }
 
 
 def convert_task_date_properties(lines: List[str]) -> List[str]:
-    """Convert dot-prefixed task date properties to Obsidian Tasks emoji date suffixes.
+    """Convert task date properties to Obsidian Tasks emoji date suffixes.
 
-    Properties like ``.created:: [[2024-01-15]]`` are converted to ``➕ 2024-01-15``
-    appended to the preceding task line.  If the task line already has a trailing
-    block anchor (``^id``), the date is inserted before it.
+    Recognizes ``created``, ``completed``/``done``, and ``cancelled``/``canceled``
+    properties with or without a leading dot and with or without ``[[]]`` around the
+    date.  For example, both ``.created:: [[2024-01-15]]`` and ``created:: 2024-01-15``
+    become ``➕ 2024-01-15`` appended to the preceding task line.
+
+    If the task line already has a trailing block anchor (``^id``), the date is
+    inserted before it.
     """
     out: List[str] = []
     for line in lines:
@@ -1045,7 +1052,7 @@ def transform_markdown(
     body_lines = _process_blocks_multiline(body_lines, tasks_format=tasks_format)
     # Convert logseq.order-list-type:: number bullets to standard numbered lists
     body_lines = convert_numbered_lists(body_lines)
-    # Convert dot-prefixed task date properties (.created, .completed, .cancelled) to emoji suffixes
+    # Convert task date properties (created, completed, cancelled, etc.) to emoji suffixes
     body_lines = convert_task_date_properties(body_lines)
     # Block ids (also filters block-level properties like 'collapsed::')
     body_lines = attach_block_ids(body_lines)
