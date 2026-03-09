@@ -23,6 +23,11 @@
   statement: "Only top-of-file, non-indented `key:: value` lines become YAML front matter; later or indented properties remain in the body."
   status: active
 
+- id: REQ-FRONTMATTER-006
+  area: frontmatter
+  statement: "Quote wiki-link values in YAML front matter so Obsidian renders them as links; comma-separated wiki-links become a YAML list of quoted items."
+  status: active
+
 - id: REQ-TITLE-001
   area: frontmatter
   statement: "Always drop `title::` from YAML; if it mismatches the vault-relative output path (without extension), emit a warning so the user can tidy up."

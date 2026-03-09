@@ -42,6 +42,27 @@ def test_emit_yaml_frontmatter_mapping():
     assert "custom: value" in yaml
 
 
+@pytest.mark.req("REQ-FRONTMATTER-006")
+def test_emit_yaml_frontmatter_quotes_single_wikilink():
+    yaml = l2o.emit_yaml_frontmatter({"manager": "[[Kyle Z]]"})
+    assert yaml is not None
+    assert 'manager: "[[Kyle Z]]"' in yaml
+
+
+@pytest.mark.req("REQ-FRONTMATTER-006")
+def test_emit_yaml_frontmatter_multi_wikilinks_become_list():
+    yaml = l2o.emit_yaml_frontmatter({"works-with": "[[Bob A]], [[Alice B]]"})
+    assert yaml is not None
+    assert 'works-with:\n  - "[[Bob A]]"\n  - "[[Alice B]]"' in yaml
+
+
+@pytest.mark.req("REQ-FRONTMATTER-006")
+def test_emit_yaml_frontmatter_plain_value_unquoted():
+    yaml = l2o.emit_yaml_frontmatter({"status": "active"})
+    assert yaml is not None
+    assert "status: active" in yaml
+
+
 @pytest.mark.req("REQ-FRONTMATTER-003")
 def test_normalize_tags_handles_unicode_characters():
     tags = l2o.normalize_tags("#가나다, #마바사")
