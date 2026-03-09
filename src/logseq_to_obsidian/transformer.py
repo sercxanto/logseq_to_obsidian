@@ -174,6 +174,19 @@ def normalize_tags(val: str) -> List[str]:
     return found
 
 
+def _format_frontmatter_prop(key: str, value: str) -> List[str]:
+    """Format a single frontmatter property, quoting wiki-links for Obsidian."""
+    if not INLINE_WIKILINK_RE.search(value):
+        return [f"{key}: {value}"]
+    parts = [p.strip() for p in value.split(",") if p.strip()]
+    if len(parts) > 1:
+        lines = [f"{key}:"]
+        for part in parts:
+            lines.append(f'  - "{part}"')
+        return lines
+    return [f'{key}: "{value}"']
+
+
 def emit_yaml_frontmatter(props: Dict[str, str]) -> Optional[str]:
     if not props:
         return None
@@ -203,9 +216,8 @@ def emit_yaml_frontmatter(props: Dict[str, str]) -> Optional[str]:
     for k, v in props.items():
         if k in handled:
             continue
-        # simple scalars; leave as-is
         if v:
-            yaml_lines.append(f"{k}: {v}")
+            yaml_lines.extend(_format_frontmatter_prop(k, v))
     yaml_lines.append("---")
     return "\n".join(yaml_lines) + "\n\n"
 

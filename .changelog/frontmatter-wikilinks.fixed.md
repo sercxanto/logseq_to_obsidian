@@ -1,0 +1,1 @@
+Quote wiki-link references in YAML front matter so Obsidian recognizes them as links. Single references like `[[Page]]` are wrapped in double quotes; comma-separated references are expanded into a YAML list of quoted items.
