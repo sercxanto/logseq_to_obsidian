@@ -42,7 +42,7 @@ packages = [
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.15.2"
 pytest = "^8.4.2"
-pytest-cov = "^7.0.0"
+pytest-cov = "^7.1.0"
 pyyaml = "^6.0.3"
 towncrier = "^25.8.0"
 poethepoet = "^0.37.0"
