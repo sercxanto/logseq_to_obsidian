@@ -82,6 +82,7 @@ filename = "CHANGELOG.md"
 directory = ".changelog"
 title_format = "## [{version}] - {project_date}"
 issue_format = "[#{issue}](https://github.com/sercxanto/logseq_to_obsidian/issues/{issue})"
+issue_pattern = "[0-9]+"
 underlines = ["", "", ""]
 
 [tool.towncrier.fragment.added]
