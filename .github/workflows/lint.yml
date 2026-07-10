@@ -28,3 +28,6 @@ jobs:
       - name: Ruff check
         run: poetry run ruff check .
 
+      - name: Validate changelog fragments
+        run: poetry run towncrier build --draft --version 0.0.0
+
