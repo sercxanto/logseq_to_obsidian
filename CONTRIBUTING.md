@@ -122,8 +122,15 @@ This helper uses the same pytest configuration, so coverage is collected automat
 ### Changelog entries (Towncrier)
 
 - Every user-visible change should come with a fragment file in `.changelog/`.
-  Use the naming pattern `<issue/short-id>.<type>.md` (e.g. `123.added.md`).
-- Valid fragment types are `added`, `changed`, `deprecated`, `removed`, `fixed`, `deprecated` and `security`.
+- Name each fragment `<number>.<type>.md`, where `<number>` is the tracking
+  issue number or, if there is none, the pull request number (e.g.
+  `123.added.md`). Towncrier turns this numeric prefix into a linked `(#123)`
+  reference in the changelog via the `issue_format` setting. Avoid a purely
+  descriptive name (e.g. `drop-python-39.removed.md`): Towncrier accepts it,
+  but the prefix is rendered verbatim and yields no working link. If you only
+  learn the PR number after opening the PR, rename the fragment then.
+- Valid fragment types are `added`, `changed`, `deprecated`, `removed`,
+  `fixed` and `security`.
 - Inspect pending fragments with `poetry run poe draftchangelog`.
 - When preparing a release, run `poetry run poe changelog` or use the `release` task (see below) to fold fragments into `CHANGELOG.md`.
 
