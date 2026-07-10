@@ -39,7 +39,7 @@ packages = [
 ]
 
 [tool.poetry.group.dev.dependencies]
-ruff = "^0.15.2"
+ruff = "^0.15.21"
 pytest = "^8.4.2"
 pytest-cov = "^7.1.0"
 pyyaml = "^6.0.3"
