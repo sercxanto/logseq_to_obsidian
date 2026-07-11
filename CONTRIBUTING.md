@@ -131,6 +131,10 @@ This helper uses the same pytest configuration, so coverage is collected automat
   learn the PR number after opening the PR, rename the fragment then.
 - Valid fragment types are `added`, `changed`, `deprecated`, `removed`,
   `fixed` and `security`.
+- Dependency updates count too. When merging a Dependabot (or manual)
+  dependency bump, add a `<PR-number>.fixed.md` fragment such as
+  `Bump ruff from 0.15.2 to 0.15.21` — Dependabot does not create the fragment
+  itself, so it has to be added by hand to keep the changelog consistent.
 - Inspect pending fragments with `poetry run poe draftchangelog`.
 - When preparing a release, run `poetry run poe changelog` or use the `release` task (see below) to fold fragments into `CHANGELOG.md`.
 

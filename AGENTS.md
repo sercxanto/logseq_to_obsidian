@@ -8,5 +8,7 @@ checklist for every contribution.
 
 ## Notes for agents
 
-Agent-specific guidance that does not belong in the human-facing
-`CONTRIBUTING.md` can be collected here. (None yet.)
+- When merging a Dependabot dependency-bump PR, remember to add a
+  `<PR-number>.fixed.md` changelog fragment for it (Dependabot does not create
+  one). This step is easy to miss because the bump PR itself touches no
+  `.changelog/` files. See the changelog section of `CONTRIBUTING.md`.
