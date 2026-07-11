@@ -546,6 +546,22 @@ def test_unknown_block_type_defaults_to_note():
     assert "> centered text\n" in out
 
 
+@pytest.mark.req("REQ-ORGBLOCK-007")
+def test_src_block_left_unchanged():
+    src = "#+BEGIN_SRC\nprint('hello')\nx = 1 < 2\n#+END_SRC\n"
+    out = l2o.transform_markdown(src)
+    assert "#+BEGIN_SRC\nprint('hello')\nx = 1 < 2\n#+END_SRC\n" in out
+    assert "[!note]" not in out
+
+
+@pytest.mark.req("REQ-ORGBLOCK-007")
+def test_query_block_left_unchanged():
+    src = "#+BEGIN_QUERY\n(and (task TODO))\n#+END_QUERY\n"
+    out = l2o.transform_markdown(src)
+    assert "#+BEGIN_QUERY\n(and (task TODO))\n#+END_QUERY\n" in out
+    assert "[!note]" not in out
+
+
 @pytest.mark.req("REQ-ORGBLOCK-003")
 def test_bold_title_extraction():
     src = "#+BEGIN_NOTE\n**My Title**\ncontent here\n#+END_NOTE\n"
@@ -726,6 +742,15 @@ def test_logseq_property_removal():
     assert "logseq.toc" not in out
     assert "logseq.table" not in out
     assert "item" in out
+
+
+@pytest.mark.req("REQ-LOGSEQPROP-001")
+def test_logseq_property_removal_keeps_preceding_blank_line():
+    src = "paragraph one\n\nlogseq.toc:: true\nparagraph two\n"
+    out = l2o.transform_markdown(src)
+    assert "logseq.toc" not in out
+    # The blank line separating the paragraphs must be preserved
+    assert "paragraph one\n\nparagraph two" in out
 
 
 # --- Tweet embeds ---

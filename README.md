@@ -50,9 +50,11 @@
     - `#+BEGIN_QUOTE` ... `#+END_QUOTE` → `>` blockquote lines.
     - `#+BEGIN_NOTE`, `#+BEGIN_TIP`, `#+BEGIN_WARNING`, `#+BEGIN_IMPORTANT`, `#+BEGIN_CAUTION`, `#+BEGIN_EXAMPLE` → Obsidian `> [!type]` callouts. The first **bold line** inside the block becomes the callout title.
     - `#+BEGIN_COMMENT` ... `#+END_COMMENT` → `%%` ... `%%` (Obsidian hidden comments).
-    - Other block types (`CENTER`, `VERSE`, `PINNED`) fall back to `> [!note]`.
+    - Other admonition-like block types (`CENTER`, `VERSE`, `PINNED`) fall back to `> [!note]`.
+    - Unknown block types (e.g. `#+BEGIN_SRC`, `#+BEGIN_QUERY`) are left unchanged, so code and query content is preserved verbatim.
     - Nested blocks are supported (e.g., a quote inside a callout produces nested `> > ...`).
     - Blocks inside indented list items preserve their indentation in output.
+    - This handles org-style block syntax embedded in Logseq's Markdown files; it does not add support for Logseq vaults stored in Org format (`.org` files).
 - Highlights:
     - `^^text^^` → `==text==` (Obsidian highlight syntax). Skipped inside fenced code blocks.
 - Numbered lists:

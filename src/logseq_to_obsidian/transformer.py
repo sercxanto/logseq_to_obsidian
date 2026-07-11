@@ -52,7 +52,7 @@ HIGHLIGHT_RE = re.compile(r"\^\^(.*?)\^\^")
 # Logseq hidden property that marks a bullet as a numbered list item
 NUMBERED_PROP_RE = re.compile(r"^\s*logseq\.order-list-type::\s*number\s*$")
 # Any remaining logseq.* namespaced block properties (cleanup pass)
-LOGSEQ_PROP_LINE_RE = re.compile(r"^\s*logseq\.\S+::\s*.*$\n?", flags=re.MULTILINE)
+LOGSEQ_PROP_LINE_RE = re.compile(r"^[ \t]*logseq\.\S+::.*$\n?", flags=re.MULTILINE)
 # Task date properties: created:: [[YYYY-MM-DD]], .completed:: 2024-01-15, etc.
 # Matches with or without a leading dot and with or without [[wiki-link]] brackets around the date.
 TASK_DATE_PROP_RE = re.compile(r"^(\s*)\.?(\w+)::\s*(?:\[\[)?(\d{4}-\d{2}-\d{2})(?:\]\])?\s*$")
@@ -848,6 +848,14 @@ def convert_orgmode_blocks(text: str) -> str:
             # Unclosed block; leave the #+BEGIN line as-is
             out.append(line)
             i += 1
+            continue
+
+        # Only convert block types we understand. Anything else (e.g. SRC, QUERY,
+        # EXPORT) is left verbatim so code and query content is never mangled into a
+        # callout.
+        if block_type not in _CALLOUT_TYPE_MAP and block_type not in {"QUOTE", "COMMENT"}:
+            out.extend(lines[i : j + 1])
+            i = j + 1
             continue
 
         # Recursively process inner content so nested blocks are converted first

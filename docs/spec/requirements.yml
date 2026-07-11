@@ -307,6 +307,11 @@
   statement: "Handle org-mode blocks inside indented list items, preserving indent on output."
   status: active
 
+- id: REQ-ORGBLOCK-007
+  area: formatting
+  statement: "Leave unknown #+BEGIN_X blocks (e.g. SRC, QUERY, EXPORT) unchanged so code and query content is not converted to a callout."
+  status: active
+
 # Highlights
 - id: REQ-HIGHLIGHT-001
   area: formatting
