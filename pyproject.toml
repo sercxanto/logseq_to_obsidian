@@ -46,7 +46,7 @@ pytest = "^8.4.2"
 pytest-cov = "^7.1.0"
 pyyaml = "^6.0.3"
 towncrier = "^25.8.0"
-poethepoet = "^0.37.0"
+poethepoet = "^0.48.0"
 
 [tool.ruff]
 target-version = "py310"
