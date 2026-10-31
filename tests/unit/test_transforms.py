@@ -1045,3 +1045,77 @@ def test_dv_fields_skip_inline_code():
 @pytest.mark.req("REQ-HIGHLIGHT-001")
 def test_highlight_conversion_around_inline_code():
     assert l2o.convert_highlights("^^a^^ `^^b^^` ``x ` ^^c^^`` ^^d^^") == "==a== `^^b^^` ``x ` ^^c^^`` ==d=="
+
+
+# --- Task date properties: format and owning task ------------------------------------------------
+
+
+@pytest.mark.req("REQ-TASKDATE-002")
+def test_task_date_properties_dataview_format():
+    src = "- DONE task\n  created:: [[2024-01-01]]\n  .completed:: 2024-01-10\n  done:: 2024-01-11\n"
+    out = l2o.transform_markdown(src, tasks_format="dataview")
+    assert out == "- [x] task [created::2024-01-01] [completion::2024-01-10] [completion::2024-01-11]\n"
+
+
+@pytest.mark.req("REQ-TASKDATE-002")
+def test_task_date_cancelled_dataview_format_before_anchor():
+    src = "- CANCELED task\n  canceled:: 2024-05-20\n  id:: abc123\n"
+    out = l2o.transform_markdown(src, tasks_format="dataview")
+    assert out == "- [x] task [cancelled::2024-05-20] ^abc123\n"
+
+
+@pytest.mark.req("REQ-TASKDATE-003")
+def test_task_date_property_on_non_task_block_is_kept():
+    out = l2o.transform_markdown("- Meeting notes\n  created:: 2024-01-15\n")
+    assert "➕" not in out
+    assert "created:: 2024-01-15" in out
+
+
+@pytest.mark.req("REQ-TASKDATE-003")
+def test_task_date_property_is_not_appended_to_other_property_line():
+    out = l2o.transform_markdown("- Item\n  foo:: bar\n  created:: 2024-01-15\n")
+    assert "foo:: bar\n" in out
+    assert "➕" not in out
+
+
+@pytest.mark.req("REQ-TASKDATE-003")
+def test_task_date_property_goes_to_task_head_of_multiline_task():
+    out = l2o.transform_markdown("- TODO task\n  second line\n  created:: 2024-01-15\n")
+    assert out == "- [ ] task ➕ 2024-01-15\n  second line\n"
+
+
+@pytest.mark.req("REQ-TASKDATE-003")
+def test_task_date_property_belongs_to_child_not_parent():
+    src = "- TODO parent\n  - Child note\n    created:: 2024-01-15\n"
+    out = l2o.transform_markdown(src)
+    assert out.startswith("- [ ] parent\n  - Child note\n")
+    assert "➕" not in out
+
+
+@pytest.mark.req("REQ-TASKDATE-003")
+@pytest.mark.req("REQ-NUMLIST-001")
+def test_task_date_property_on_numbered_task():
+    src = "- TODO task\n  logseq.order-list-type:: number\n  created:: 2024-01-15\n"
+    assert l2o.transform_markdown(src) == "1. [ ] task ➕ 2024-01-15\n"
+
+
+@pytest.mark.req("REQ-TASKDATE-003")
+def test_task_date_property_after_blank_line_is_kept():
+    out = l2o.convert_task_date_properties(["- [ ] task\n", "\n", "created:: 2024-01-15\n"])
+    assert out == ["- [ ] task\n", "\n", "created:: 2024-01-15\n"]
+
+
+# --- Unresolved block embeds ---------------------------------------------------------------------
+
+
+@pytest.mark.req("REQ-EMBED-005")
+def test_unresolved_block_embed_is_left_unchanged(tmp_path):
+    text = "{{embed ((abcdef1))}}\n"
+    replaced = l2o.replace_block_refs(text, {}, {}, tmp_path)
+    assert l2o.replace_embeds(replaced) == text
+
+
+@pytest.mark.req("REQ-BLOCKREF-003")
+def test_find_block_refs_ignores_code():
+    text = "((aaaaaa1)) `((bbbbbb2))` {{embed ((cccccc3))}}\n```\n((dddddd4))\n```\n"
+    assert l2o.find_block_refs(text) == ["aaaaaa1", "cccccc3"]
