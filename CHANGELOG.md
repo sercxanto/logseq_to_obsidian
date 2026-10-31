@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <!-- towncrier release notes start -->
 
+## [0.2.1] - 2026-10-31
+
+### Fixed
+
+- Bump towncrier from 25.8.0 to 26.9.0 ([#67](https://github.com/sercxanto/logseq_to_obsidian/issues/67))
+- Bump poethepoet from 0.48.0 to 0.49.0 ([#73](https://github.com/sercxanto/logseq_to_obsidian/issues/73))
+- Bump ruff from 0.16.0 to 0.17.3 ([#74](https://github.com/sercxanto/logseq_to_obsidian/issues/74))
+- Never transform content inside fenced code blocks or inline code: tasks, properties, block ids and refs, embeds, images, highlights and links there are preserved, and anchors or dates are no longer appended to fence lines. ([#75](https://github.com/sercxanto/logseq_to_obsidian/issues/75))
+- Quote YAML front matter values that would otherwise produce invalid YAML or lose data, e.g. `description:: Note: important` or `type:: #book`. ([#75](https://github.com/sercxanto/logseq_to_obsidian/issues/75))
+- Leave remote images (`https://`, `data:`, `//` URLs) unchanged instead of turning them into broken vault embeds; this also keeps `{{video}}`/`{{youtube}}`/`{{tweet}}` embeds working. ([#75](https://github.com/sercxanto/logseq_to_obsidian/issues/75))
+- Leave `{{embed ((id))}}` unchanged when the block id cannot be resolved instead of emitting a broken `![[^id]]` link, and warn once per file about unresolved block references and embeds. ([#76](https://github.com/sercxanto/logseq_to_obsidian/issues/76))
+- Honor `--tasks-format dataview` for task date properties (`[created::…]`, `[completion::…]`, `[cancelled::…]`) and append them only to the task they belong to; properties of non-task blocks are kept instead of being glued to the previous line. ([#76](https://github.com/sercxanto/logseq_to_obsidian/issues/76))
+- Detect source files that map to the same output path (e.g. `pages/a___b.md` and `pages/a/b.md`, compared case-insensitively): only the first one in sorted order is converted and the others are skipped with a warning instead of being overwritten silently. Files are now processed in a deterministic order. ([#76](https://github.com/sercxanto/logseq_to_obsidian/issues/76))
+- Correct the homepage and repository URLs in the package metadata, which pointed to a non-existent `logseq-to-obsidian` repository instead of `logseq_to_obsidian`. ([#77](https://github.com/sercxanto/logseq_to_obsidian/issues/77))
+
+
 ## [0.2.0] - 2026-07-25
 
 ### Added
