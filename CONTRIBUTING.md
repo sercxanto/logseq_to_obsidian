@@ -146,28 +146,29 @@ If you like to do single steps instead have a look at the defined tasks: `poe he
 
 ### Publish the release
 
-Make sure that you have setup the poetry setup correctly and provided the token to poetry, e.g.
+Publishing is automated by the `Release` GitHub Actions workflow
+(`.github/workflows/release.yml`). Push the release commit and its tag:
 
 ```shell
-poetry config pypi-token.pypi pypi-...
+git push && git push origin v$(poetry version -s)
 ```
 
-Tag the release and push it to gitlab:
+Pushing a `v*` tag triggers the workflow, which:
 
-```shell
-git push && git push --tags origin v$(poetry version -s)
-```
+1. checks that the tag matches the version in `pyproject.toml`,
+2. runs lint and tests, builds the sdist and wheel, and smoke-tests the wheel
+   (installs it into a fresh venv, checks `--version` and converts
+   `tests/fixtures/logseq/basic`, comparing the result with `tests/golden/basic`),
+3. publishes to PyPI via [trusted publishing](https://docs.pypi.org/trusted-publishers/)
+   (OIDC, no API token needed) from the `pypi` GitHub environment,
+4. creates the GitHub release with the changelog section of that version as
+   release notes and the built files attached.
 
-Publish to github:
-
-[Create a release](https://github.com/sercxanto/logseq_to_obsidian/releases/new) on github referencing
-the pushed tag. Copy the change log for that version to the release notes.
-
-Publish to pypi:
-
-```shell
-poetry publish --build
-```
+One-time setup: on PyPI, add a trusted publisher for the project with owner
+`sercxanto`, repository `logseq_to_obsidian`, workflow `release.yml` and
+environment `pypi`. On GitHub, create the environment `pypi` under
+*Settings → Environments* (optionally with required reviewers and restricted
+to `v*` tags).
 
 ### Requirements Traceability
 

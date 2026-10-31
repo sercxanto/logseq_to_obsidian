@@ -1,0 +1,130 @@
+name: Release
+
+on:
+  push:
+    tags: [ 'v*' ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build distribution
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Poetry
+        uses: abatilo/actions-poetry@v3
+        with:
+          poetry-version: '2.1.4'
+
+      - name: Check that tag matches project version
+        run: |
+          version="$(poetry version -s)"
+          if [ "v${version}" != "${GITHUB_REF_NAME}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match project version v${version}"
+            exit 1
+          fi
+
+      - name: Install dependencies (dev only)
+        run: poetry install --with dev
+
+      - name: Run lint and tests
+        run: |
+          poetry run ruff check .
+          poetry run pytest
+
+      - name: Build sdist and wheel
+        run: poetry build
+
+      - name: Smoke test the built wheel
+        run: |
+          version="$(poetry version -s)"
+          venv="${RUNNER_TEMP}/smoke-venv"
+          out="${RUNNER_TEMP}/smoke-out"
+          python -m venv "$venv"
+          "$venv/bin/pip" install --quiet dist/*.whl
+          # Run from outside the checkout so the installed package is used, not src/.
+          cd "$RUNNER_TEMP"
+          reported="$("$venv/bin/logseq-to-obsidian" --version)"
+          echo "$reported"
+          if [ "$reported" != "logseq-to-obsidian ${version}" ]; then
+            echo "::error::Installed wheel reports '${reported}', expected version ${version}"
+            exit 1
+          fi
+          "$venv/bin/logseq-to-obsidian" \
+            --input "${GITHUB_WORKSPACE}/tests/fixtures/logseq/basic" \
+            --output "$out"
+          # manifest.yml only lists covered requirement IDs; it is not converter output.
+          diff -r --exclude=manifest.yml "$out" "${GITHUB_WORKSPACE}/tests/golden/basic"
+
+      - name: Upload distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/logseq-to-obsidian/
+    permissions:
+      id-token: write  # required for trusted publishing (OIDC)
+    steps:
+      - name: Download distribution
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    name: Create GitHub release
+    needs: publish-pypi
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download distribution
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Extract release notes from CHANGELOG.md
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v ver="$version" '
+            index($0, "## [" ver "]") == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          if ! grep -q '[^[:space:]]' release-notes.md; then
+            echo "::error::No changelog section found for version ${version}"
+            exit 1
+          fi
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" dist/* \
+            --title "${GITHUB_REF_NAME}" \
+            --notes-file release-notes.md \
+            --verify-tag
