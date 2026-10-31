@@ -845,3 +845,203 @@ def test_date_property_no_dot_no_brackets_combined():
     out = l2o.transform_markdown(src)
     assert "➕ 2024-01-01" in out
     assert "✅ 2024-01-10" in out
+
+
+# --- Remote images -------------------------------------------------------------------------------
+
+
+@pytest.mark.req("REQ-IMAGE-001")
+@pytest.mark.parametrize(
+    "src",
+    [
+        "https://example.com/img/logo.png",
+        "http://example.com/a.png",
+        "data:image/png;base64,iVBORw0KGgo=",
+        "//cdn.example.com/a.png",
+        "<https://example.com/a b.png>",
+    ],
+)
+def test_remote_images_are_left_unchanged(src):
+    text = f"- ![logo]({src}) after\n"
+    assert l2o.replace_asset_images(text) == text
+
+
+@pytest.mark.req("REQ-IMAGE-001")
+def test_windows_path_image_is_still_treated_as_asset():
+    assert l2o.replace_asset_images("![](C:\\pics\\a.png)") == "![[a.png]]"
+
+
+@pytest.mark.req("REQ-EMBED-003")
+@pytest.mark.req("REQ-IMAGE-001")
+def test_video_embed_survives_image_conversion():
+    text = "{{youtube https://www.youtube.com/watch?v=abc}}\n"
+    out = l2o.replace_asset_images(l2o.replace_embeds(text))
+    assert out == "![](https://www.youtube.com/watch?v=abc)\n"
+
+
+# --- YAML front matter quoting ---------------------------------------------------------------------
+
+
+@pytest.mark.req("REQ-FRONTMATTER-004")
+@pytest.mark.parametrize(
+    "value",
+    [
+        "Note: important",
+        "#book",
+        "a #comment-like",
+        "trailing:",
+        "- dash",
+        "? question",
+        "[not a list",
+        "{not a map}",
+        "*alias",
+        "&anchor",
+        "!tag",
+        "|pipe",
+        ">fold",
+        "'single",
+        '"double" quoted',
+        "%percent",
+        "@at",
+        "`tick",
+        'back\\slash: and "quote"',
+    ],
+)
+def test_frontmatter_values_round_trip_through_yaml(value):
+    yaml_lib = pytest.importorskip("yaml")
+    fm = l2o.emit_yaml_frontmatter({"title": value, "custom": value, "aliases": value})
+    data = yaml_lib.safe_load(fm.strip().strip("-"))
+    assert data["title"] == value
+    assert data["custom"] == value
+    assert data["aliases"] == [value]
+
+
+@pytest.mark.req("REQ-FRONTMATTER-004")
+@pytest.mark.parametrize(
+    "value",
+    ["value", "https://example.com/x", "C# rocks", "2024-01-15", "true", "42", "-5", "a, b", "it's"],
+)
+def test_frontmatter_safe_values_stay_unquoted(value):
+    assert f"custom: {value}\n" in l2o.emit_yaml_frontmatter({"custom": value})
+
+
+@pytest.mark.req("REQ-FRONTMATTER-006")
+def test_frontmatter_wikilink_with_quote_is_escaped():
+    yaml_lib = pytest.importorskip("yaml")
+    fm = l2o.emit_yaml_frontmatter({"ref": '[[Say "hi"]]'})
+    assert yaml_lib.safe_load(fm.strip().strip("-"))["ref"] == '[[Say "hi"]]'
+
+
+@pytest.mark.req("REQ-FRONTMATTER-001")
+@pytest.mark.req("REQ-FRONTMATTER-004")
+def test_transform_markdown_emits_valid_yaml_for_tricky_properties():
+    yaml_lib = pytest.importorskip("yaml")
+    out = l2o.transform_markdown("description:: Note: important\ntype:: #book\n\n- body\n")
+    fm = out.split("---")[1]
+    assert yaml_lib.safe_load(fm) == {"description": "Note: important", "type": "#book"}
+
+
+# --- Code blocks are preserved verbatim ------------------------------------------------------------
+
+
+@pytest.mark.req("REQ-CODE-001")
+def test_fenced_code_inside_block_is_not_transformed():
+    src = (
+        "- Example:\n"
+        "  ```\n"
+        "  - TODO not a task SCHEDULED: <2024-01-01 Mon>\n"
+        "  id:: 123456\n"
+        "  collapsed:: true\n"
+        "  logseq.order-list-type:: number\n"
+        "  :LOGBOOK:\n"
+        "  CLOCK: [2024-01-01 Mon 10:00]\n"
+        "  :END:\n"
+        "  ^^not highlighted^^\n"
+        "  ```\n"
+    )
+    assert l2o.transform_markdown(src) == src
+
+
+@pytest.mark.req("REQ-CODE-001")
+@pytest.mark.req("REQ-BLOCKID-001")
+def test_block_id_attaches_to_head_not_to_code_and_blank_lines_in_code_are_kept():
+    src = "- Example:\n  id:: abc123\n  ```\n  code\n\n  more\n  ```\n"
+    assert l2o.transform_markdown(src) == "- Example: ^abc123\n  ```\n  code\n\n  more\n  ```\n"
+
+
+@pytest.mark.req("REQ-CODE-001")
+def test_anchor_is_never_appended_to_a_fence_line():
+    out = l2o.transform_markdown("- ```python\n  print(1)\n  ```\n  id:: abc123\n")
+    assert out.startswith("- ```python\n  print(1)\n  ```\n")
+    assert "``` ^" not in out
+
+
+@pytest.mark.req("REQ-CODE-001")
+@pytest.mark.req("REQ-PROPS-002")
+def test_property_only_head_followed_by_code_promotes_fence():
+    src = "- collapsed:: true\n  ```\n  code\n  ```\n"
+    assert l2o.transform_markdown(src) == "- ```\n  code\n  ```\n"
+
+
+@pytest.mark.req("REQ-CODE-001")
+@pytest.mark.req("REQ-TASKDATE-001")
+def test_task_date_property_is_not_appended_to_code_fence():
+    out = l2o.transform_markdown("- TODO x\n  ```\n  c\n  ```\n  created:: 2024-01-15\n")
+    assert "``` ➕" not in out
+    assert out.startswith("- [ ] x\n  ```\n  c\n  ```\n")
+
+
+@pytest.mark.req("REQ-CODE-001")
+@pytest.mark.req("REQ-NUMLIST-001")
+def test_code_block_inside_numbered_item_does_not_restart_numbering():
+    src = (
+        "- one\n"
+        "  logseq.order-list-type:: number\n"
+        "  ```\n"
+        "  - not a bullet\n"
+        "  ```\n"
+        "- two\n"
+        "  logseq.order-list-type:: number\n"
+    )
+    assert l2o.transform_markdown(src) == "1. one\n  ```\n  - not a bullet\n  ```\n2. two\n"
+
+
+@pytest.mark.req("REQ-CODE-001")
+@pytest.mark.req("REQ-BLOCKREF-001")
+def test_block_index_ignores_ids_inside_code():
+    text = "```\nid:: aaaaaa1\nx ^bbbbbb2\n```\nreal ^cccccc3\n"
+    assert l2o.build_block_index({Path("a.md"): text}) == {"cccccc3": Path("a.md")}
+
+
+@pytest.mark.req("REQ-CODE-001")
+@pytest.mark.req("REQ-BLOCKREF-001")
+def test_block_refs_inside_code_are_not_replaced(tmp_path):
+    src = tmp_path / "p.md"
+    index = {"abcdef1": src}
+    text = "`((abcdef1))` and ((abcdef1))\n```\n((abcdef1))\n```\n"
+    out = l2o.replace_block_refs(text, index, {src: src}, tmp_path)
+    assert out == "`((abcdef1))` and [[p#^abcdef1]]\n```\n((abcdef1))\n```\n"
+
+
+@pytest.mark.req("REQ-CODE-001")
+@pytest.mark.parametrize(
+    "func",
+    [l2o.replace_embeds, l2o.replace_asset_images, l2o.replace_page_alias_links, l2o.convert_highlights],
+)
+def test_inline_and_fenced_code_are_untouched_by_text_replacements(func):
+    snippet = "{{embed [[P]]}} ![a](../assets/x.png) [L]([[P]]) ^^h^^"
+    text = f"`{snippet}`\n```\n{snippet}\n```\n"
+    assert func(text) == text
+
+
+@pytest.mark.req("REQ-CODE-001")
+@pytest.mark.req("REQ-LINKNS-001")
+def test_dv_fields_skip_inline_code():
+    out = l2o.replace_wikilinks_to_dv_fields("`[[a/b]]` [[a/c]]\n", ["a"])
+    assert out == "`[[a/b]]` [a::c]\n"
+
+
+@pytest.mark.req("REQ-CODE-001")
+@pytest.mark.req("REQ-HIGHLIGHT-001")
+def test_highlight_conversion_around_inline_code():
+    assert l2o.convert_highlights("^^a^^ `^^b^^` ``x ` ^^c^^`` ^^d^^") == "==a== `^^b^^` ``x ` ^^c^^`` ==d=="

@@ -13,6 +13,7 @@
 ## Features
 
 - Page properties (`key:: value`) at top → YAML front matter.
+    - Values are quoted when plain YAML would break or silently change them (e.g. `Note: important`, `#book`); numbers, booleans and dates stay unquoted so Obsidian keeps their property type.
 - Special mappings:
     - `alias::` or `aliases::` → `aliases: []` (array)
     - `tags::` → `tags: []` (array, without `#`)
@@ -46,6 +47,7 @@
 - Images in assets:
     - `![alt](../assets/image.png)` or `![alt](assets/image.png)` → `![[image.png]]` (alt text is not preserved)
     - With size attributes: `![alt](../assets/image.png){:height H, :width W}` → `![[image.png|WxH]]` (width × height)
+    - Remote images (`https://...`, `data:...`, `//...`) are left unchanged.
 - Org-mode blocks:
     - `#+BEGIN_QUOTE` ... `#+END_QUOTE` → `>` blockquote lines.
     - `#+BEGIN_NOTE`, `#+BEGIN_TIP`, `#+BEGIN_WARNING`, `#+BEGIN_IMPORTANT`, `#+BEGIN_CAUTION`, `#+BEGIN_EXAMPLE` → Obsidian `> [!type]` callouts. The first **bold line** inside the block becomes the callout title.
@@ -56,7 +58,7 @@
     - Blocks inside indented list items preserve their indentation in output.
     - This handles org-style block syntax embedded in Logseq's Markdown files; it does not add support for Logseq vaults stored in Org format (`.org` files).
 - Highlights:
-    - `^^text^^` → `==text==` (Obsidian highlight syntax). Skipped inside fenced code blocks.
+    - `^^text^^` → `==text==` (Obsidian highlight syntax). Skipped inside code.
 - Numbered lists:
     - Logseq stores numbered lists as regular bullets with a hidden `logseq.order-list-type:: number` property. These are converted to standard Markdown numbered lists (`1.`, `2.`, `3.`...) with correct sequential numbering that resets across indent levels and non-numbered items.
 - Task date properties:
@@ -67,6 +69,8 @@
 - Logseq metadata cleanup:
     - `:LOGBOOK:` ... `:END:` time-tracker blocks are removed.
     - Remaining `logseq.*` namespaced block properties (e.g., `logseq.toc::`) are removed.
+- Code:
+    - Content inside fenced code blocks and inline code spans is never transformed; Logseq syntax there (tasks, properties, block refs, embeds, images, highlights, links) is kept verbatim.
 - Headings followed by indented lists:
     - If a heading line is immediately followed by an indented list (≥4 spaces or tabs), prefix the heading with `- ` (i.e., `- # Heading`).
     - Rationale: Logseq treats such lists as children of the heading; Obsidian otherwise renders them as quoted/code blocks. This keeps folding behavior aligned.

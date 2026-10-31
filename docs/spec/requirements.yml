@@ -136,7 +136,7 @@
 
 - id: REQ-IMAGE-001
   area: images
-  statement: "Convert Logseq markdown image links to assets (e.g., `![alt](../assets/img.png)`) into Obsidian embeds `![[img.png]]`; alt text is dropped."
+  statement: "Convert Logseq markdown image links to assets (e.g., `![alt](../assets/img.png)`) into Obsidian embeds `![[img.png]]`; alt text is dropped. Remote images (URL with a scheme such as `https://` or `data:`) are left unchanged."
   status: active
 
 - id: REQ-IMAGE-002
@@ -356,4 +356,10 @@
 - id: REQ-TASKDATE-001
   area: tasks
   statement: "Convert task date properties (created/completed/done/cancelled/canceled) to Obsidian Tasks emoji date suffixes (➕/✅/❌), with or without a leading dot and with or without [[]] around the date."
+  status: active
+
+# Code blocks
+- id: REQ-CODE-001
+  area: formatting
+  statement: "Do not transform anything inside fenced code blocks or inline code spans; Logseq syntax there (tasks, properties, block ids and refs, embeds, images, links, highlights) is preserved verbatim."
   status: active
