@@ -13,6 +13,7 @@
 ## Features
 
 - Page properties (`key:: value`) at top → YAML front matter.
+    - Values are quoted when plain YAML would break or silently change them (e.g. `Note: important`, `#book`); numbers, booleans and dates stay unquoted so Obsidian keeps their property type.
 - Special mappings:
     - `alias::` or `aliases::` → `aliases: []` (array)
     - `tags::` → `tags: []` (array, without `#`)
@@ -38,7 +39,7 @@
 - Alias links:
     - `[Display Name]([[Page Name]])` → `[[Page Name|Display Name]]` (outside fenced code blocks).
 - Embeds:
-    - `{{embed ((<uuid>))}}` → `![[<FileName>#^<uuid>]]`
+    - `{{embed ((<uuid>))}}` → `![[<FileName>#^<uuid>]]` (left unchanged if the block id cannot be resolved)
     - `{{embed [[Some Page]]}}` → `![[Some Page]]`
     - `{{video https://...}}` → `![](https://...)`
     - `{{youtube https://...}}` → `![](https://...)`
@@ -46,6 +47,7 @@
 - Images in assets:
     - `![alt](../assets/image.png)` or `![alt](assets/image.png)` → `![[image.png]]` (alt text is not preserved)
     - With size attributes: `![alt](../assets/image.png){:height H, :width W}` → `![[image.png|WxH]]` (width × height)
+    - Remote images (`https://...`, `data:...`, `//...`) are left unchanged.
 - Org-mode blocks:
     - `#+BEGIN_QUOTE` ... `#+END_QUOTE` → `>` blockquote lines.
     - `#+BEGIN_NOTE`, `#+BEGIN_TIP`, `#+BEGIN_WARNING`, `#+BEGIN_IMPORTANT`, `#+BEGIN_CAUTION`, `#+BEGIN_EXAMPLE` → Obsidian `> [!type]` callouts. The first **bold line** inside the block becomes the callout title.
@@ -56,17 +58,20 @@
     - Blocks inside indented list items preserve their indentation in output.
     - This handles org-style block syntax embedded in Logseq's Markdown files; it does not add support for Logseq vaults stored in Org format (`.org` files).
 - Highlights:
-    - `^^text^^` → `==text==` (Obsidian highlight syntax). Skipped inside fenced code blocks.
+    - `^^text^^` → `==text==` (Obsidian highlight syntax). Skipped inside code.
 - Numbered lists:
     - Logseq stores numbered lists as regular bullets with a hidden `logseq.order-list-type:: number` property. These are converted to standard Markdown numbered lists (`1.`, `2.`, `3.`...) with correct sequential numbering that resets across indent levels and non-numbered items.
 - Task date properties:
-    - `created:: [[YYYY-MM-DD]]` or `created:: YYYY-MM-DD` → appends `➕ YYYY-MM-DD`
-    - `completed:: ...` or `done:: ...` → appends `✅ YYYY-MM-DD`
-    - `cancelled:: ...` or `canceled:: ...` → appends `❌ YYYY-MM-DD`
+    - `created:: [[YYYY-MM-DD]]` or `created:: YYYY-MM-DD` → Emoji: appends `➕ YYYY-MM-DD`; Dataview: `[created::YYYY-MM-DD]`
+    - `completed:: ...` or `done:: ...` → Emoji: appends `✅ YYYY-MM-DD`; Dataview: `[completion::YYYY-MM-DD]`
+    - `cancelled:: ...` or `canceled:: ...` → Emoji: appends `❌ YYYY-MM-DD`; Dataview: `[cancelled::YYYY-MM-DD]`
     - Works with or without a leading dot (e.g., `.created::`) and with or without `[[]]` around the date.
+    - The date is appended to the task the property belongs to; on blocks that are not tasks the property is kept unchanged.
 - Logseq metadata cleanup:
     - `:LOGBOOK:` ... `:END:` time-tracker blocks are removed.
     - Remaining `logseq.*` namespaced block properties (e.g., `logseq.toc::`) are removed.
+- Code:
+    - Content inside fenced code blocks and inline code spans is never transformed; Logseq syntax there (tasks, properties, block refs, embeds, images, highlights, links) is kept verbatim.
 - Headings followed by indented lists:
     - If a heading line is immediately followed by an indented list (≥4 spaces or tabs), prefix the heading with `- ` (i.e., `- # Heading`).
     - Rationale: Logseq treats such lists as children of the heading; Obsidian otherwise renders them as quoted/code blocks. This keeps folding behavior aligned.
@@ -115,7 +120,7 @@ python -m logseq_to_obsidian \
 ## Notes and assumptions
 
 - Only Markdown (`.md`) files are transformed; other files are copied.
-- Block reference resolution requires that `id::` appears for referenced blocks in the source files.
+- Block reference resolution requires that `id::` appears for referenced blocks in the source files. Unresolved block references and embeds are left unchanged and reported with one warning per file.
 - This tool is conservative: it preserves unknown page properties in YAML.
 - Block-level `collapsed::` properties are ignored; Obsidian stores list collapse state outside Markdown.
 
@@ -135,6 +140,7 @@ python -m logseq_to_obsidian \
 - Pages: All files from Logseq's `pages/` are placed at the root of the Obsidian vault.
 - Nested paths: Logseq encodes subfolders in page filenames using three underscores `___`.
     - Example: `pages/a___b.md` becomes `a/b.md`.
+- Collisions: if several source files map to the same output path (e.g. `pages/a___b.md` and `pages/a/b.md`, or `pages/Foo.md` and `pages/foo.md`, compared case-insensitively), only the first one in sorted path order is converted. The others are skipped with a warning so nothing is overwritten silently.
 
 ## Journals
 

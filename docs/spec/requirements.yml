@@ -93,6 +93,11 @@
   statement: "Leave unresolved block references unchanged when the id is unknown."
   status: active
 
+- id: REQ-BLOCKREF-003
+  area: links
+  statement: "Emit one warning per file listing the ids of unresolved block references and block embeds (outside code)."
+  status: active
+
 - id: REQ-LINKPATH-001
   area: links
   statement: "Use vault-relative link targets without file extension, with forward slashes."
@@ -124,6 +129,11 @@
   statement: "Convert `{{embed ((id))}}` to `![[path#^id]]` after resolving the block ref."
   status: active
 
+- id: REQ-EMBED-005
+  area: embeds
+  statement: "Leave `{{embed ((id))}}` unchanged when the block id cannot be resolved."
+  status: active
+
 - id: REQ-EMBED-002
   area: embeds
   statement: "Convert `{{embed [[Page]]}}` to `![[Page]]`."
@@ -136,7 +146,7 @@
 
 - id: REQ-IMAGE-001
   area: images
-  statement: "Convert Logseq markdown image links to assets (e.g., `![alt](../assets/img.png)`) into Obsidian embeds `![[img.png]]`; alt text is dropped."
+  statement: "Convert Logseq markdown image links to assets (e.g., `![alt](../assets/img.png)`) into Obsidian embeds `![[img.png]]`; alt text is dropped. Remote images (URL with a scheme such as `https://` or `data:`) are left unchanged."
   status: active
 
 - id: REQ-IMAGE-002
@@ -192,6 +202,11 @@
 - id: REQ-STRUCTURE-006
   area: structure
   statement: "Do not process or copy a top-level `.git/` directory from the source vault."
+  status: active
+
+- id: REQ-STRUCTURE-007
+  area: structure
+  statement: "When several source files map to the same output path (compared case-insensitively), convert only the first one in sorted path order and emit a warning naming the skipped file."
   status: active
 
 - id: REQ-HEADCHILD-001
@@ -355,5 +370,21 @@
 # Task date properties
 - id: REQ-TASKDATE-001
   area: tasks
-  statement: "Convert task date properties (created/completed/done/cancelled/canceled) to Obsidian Tasks emoji date suffixes (➕/✅/❌), with or without a leading dot and with or without [[]] around the date."
+  statement: "With `--tasks-format emoji` (default), convert task date properties (created/completed/done/cancelled/canceled) to Obsidian Tasks emoji date suffixes (➕/✅/❌), with or without a leading dot and with or without [[]] around the date."
+  status: active
+
+- id: REQ-TASKDATE-002
+  area: tasks
+  statement: "With `--tasks-format dataview`, convert task date properties to Obsidian Tasks Dataview fields `[created::DATE]`, `[completion::DATE]` (completed/done) and `[cancelled::DATE]` (cancelled/canceled)."
+  status: active
+
+- id: REQ-TASKDATE-003
+  area: tasks
+  statement: "Append a task date property only to the task it belongs to (the nearest preceding list item of the same block); properties of blocks that are not tasks are kept unchanged."
+  status: active
+
+# Code blocks
+- id: REQ-CODE-001
+  area: formatting
+  statement: "Do not transform anything inside fenced code blocks or inline code spans; Logseq syntax there (tasks, properties, block ids and refs, embeds, images, links, highlights) is preserved verbatim."
   status: active

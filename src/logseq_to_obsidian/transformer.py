@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 PAGE_PROP_RE = re.compile(r"^([A-Za-z0-9_\-]+)::\s*(.*)\s*$")
 # Block properties may be indented under a list item in Logseq
@@ -58,6 +58,17 @@ LOGSEQ_PROP_LINE_RE = re.compile(r"^[ \t]*logseq\.\S+::.*$\n?", flags=re.MULTILI
 TASK_DATE_PROP_RE = re.compile(r"^(\s*)\.?(\w+)::\s*(?:\[\[)?(\d{4}-\d{2}-\d{2})(?:\]\])?\s*$")
 # Trailing block anchor like ^abc123 at end of line
 BLOCK_ANCHOR_TRAILING_RE = re.compile(r"(\s+\^[A-Za-z0-9_-]+)$")
+BLOCK_ANCHOR_LINE_RE = re.compile(r"\^([A-Za-z0-9_-]+)\s*$")
+# Any list item (bullet or numbered), and list items that are Obsidian tasks
+LIST_ITEM_RE = re.compile(r"^[ \t]*(?:[-*+]|\d+[.)])(?:\s|$)")
+TASK_LINE_RE = re.compile(r"^[ \t]*(?:[-*+]|\d+[.)])\s+\[[ xX]\](?:\s|$)")
+# Inline code span: a run of N backticks, content, and a closing run of exactly N backticks
+INLINE_CODE_RE = re.compile(r"(?<!`)(`+)(?!`).+?(?<!`)\1(?!`)")
+# Image source with a URL scheme (http:, https:, data:, ...) or protocol-relative '//'.
+# The scheme needs at least two characters so Windows drive letters like 'C:' are not matched.
+REMOTE_URL_RE = re.compile(r"^<?(?:[A-Za-z][A-Za-z0-9+.\-]+:|//)")
+# Characters that cannot start a YAML plain scalar
+_YAML_INDICATOR_START = frozenset(",[]{}#&*!|>'\"%@`")
 
 # Logseq #+BEGIN_TYPE -> Obsidian callout type; unknown types fall back to "note"
 _CALLOUT_TYPE_MAP: Dict[str, str] = {
@@ -80,6 +91,7 @@ __all__ = [
     "convert_orgmode_blocks",
     "convert_task_date_properties",
     "emit_yaml_frontmatter",
+    "find_block_refs",
     "fix_heading_child_lists",
     "normalize_aliases",
     "normalize_tags",
@@ -174,17 +186,44 @@ def normalize_tags(val: str) -> List[str]:
     return found
 
 
+def _yaml_quote(value: str) -> str:
+    """Return value as a YAML double-quoted scalar."""
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+def _yaml_scalar(value: str) -> str:
+    """Return value as a YAML scalar, quoting it only when a plain scalar would be invalid or lose data.
+
+    Values that YAML resolves to other types (numbers, booleans, dates) stay unquoted on purpose so that
+    Obsidian keeps treating them as typed properties.
+    """
+    if not value:
+        return '""'
+    needs_quotes = (
+        value[0] in _YAML_INDICATOR_START
+        or (value[0] in "-?:" and (len(value) == 1 or value[1].isspace()))
+        or value != value.strip()
+        or value.endswith(":")
+        or ": " in value
+        or ":\t" in value
+        or " #" in value
+        or "\t#" in value
+    )
+    return _yaml_quote(value) if needs_quotes else value
+
+
 def _format_frontmatter_prop(key: str, value: str) -> List[str]:
     """Format a single frontmatter property, quoting wiki-links for Obsidian."""
     if not INLINE_WIKILINK_RE.search(value):
-        return [f"{key}: {value}"]
+        return [f"{key}: {_yaml_scalar(value)}"]
     parts = [p.strip() for p in value.split(",") if p.strip()]
     if len(parts) > 1:
         lines = [f"{key}:"]
         for part in parts:
-            lines.append(f'  - "{part}"')
+            lines.append(f"  - {_yaml_quote(part)}")
         return lines
-    return [f'{key}: "{value}"']
+    return [f"{key}: {_yaml_quote(value)}"]
 
 
 def emit_yaml_frontmatter(props: Dict[str, str]) -> Optional[str]:
@@ -194,7 +233,7 @@ def emit_yaml_frontmatter(props: Dict[str, str]) -> Optional[str]:
     yaml_lines: List[str] = ["---"]
     # title (may be suppressed upstream if equal to file path)
     if "title" in props:
-        yaml_lines.append(f"title: {props['title']}")
+        yaml_lines.append(f"title: {_yaml_scalar(props['title'])}")
     # aliases
     aliases_src = props.get("aliases") or props.get("alias")
     if aliases_src:
@@ -202,7 +241,7 @@ def emit_yaml_frontmatter(props: Dict[str, str]) -> Optional[str]:
         if aliases:
             yaml_lines.append("aliases:")
             for a in aliases:
-                yaml_lines.append(f"  - {a}")
+                yaml_lines.append(f"  - {_yaml_scalar(a)}")
     # tags
     tags_src = props.get("tags")
     if tags_src:
@@ -210,7 +249,7 @@ def emit_yaml_frontmatter(props: Dict[str, str]) -> Optional[str]:
         if tags:
             yaml_lines.append("tags:")
             for t in tags:
-                yaml_lines.append(f"  - {t}")
+                yaml_lines.append(f"  - {_yaml_scalar(t)}")
     # Include other props (excluding those already handled)
     handled = {"title", "aliases", "alias", "tags"}
     for k, v in props.items():
@@ -362,7 +401,14 @@ def attach_block_ids(lines: List[str]) -> List[str]:
     out: List[str] = []
     last_content_idx: Optional[int] = None
     property_since_content = False
-    for line in lines:
+    code_flags = _code_line_flags(lines)
+    for line, is_code in zip(lines, code_flags, strict=True):
+        if is_code:
+            # Code is kept verbatim and never receives an anchor (a suffix would break the fence)
+            out.append(line)
+            last_content_idx = None
+            property_since_content = False
+            continue
         m = ID_PROP_RE.match(line)
         if m and last_content_idx is not None and not property_since_content:
             block_id = m.group(1)
@@ -397,7 +443,7 @@ def attach_block_ids(lines: List[str]) -> List[str]:
         out.append(line)
     # If the original ended with an id:: line that was attached, ensure a trailing newline so tests expecting
     # the anchored content as the penultimate element will pass and files end with a newline.
-    if lines and ID_PROP_RE.match(lines[-1]):
+    if lines and not code_flags[-1] and ID_PROP_RE.match(lines[-1]):
         if not out or out[-1].strip():
             out.append("\n")
     return out
@@ -418,6 +464,59 @@ def _is_fence(line: str) -> bool:
             if j < len(t) and t[j].isspace():
                 t = t[j + 1 :].lstrip()
     return t.startswith("```")
+
+
+def _code_line_flags(lines: List[str]) -> List[bool]:
+    """Return one flag per line: True for fence lines and lines inside a fenced code block."""
+    flags: List[bool] = []
+    in_fence = False
+    for line in lines:
+        if _is_fence(line):
+            flags.append(True)
+            in_fence = not in_fence
+        else:
+            flags.append(in_fence)
+    return flags
+
+
+def _map_outside_inline_code(line: str, fn: Callable[[str], str]) -> str:
+    """Apply fn to the parts of a single line that are not inline code spans."""
+    parts: List[str] = []
+    pos = 0
+    for m in INLINE_CODE_RE.finditer(line):
+        parts.append(fn(line[pos : m.start()]))
+        parts.append(m.group(0))
+        pos = m.end()
+    parts.append(fn(line[pos:]))
+    return "".join(parts)
+
+
+def _map_outside_code(text: str, fn: Callable[[str], str]) -> str:
+    """Apply a line-local substitution fn to text outside fenced code blocks and inline code spans."""
+    lines = text.splitlines(keepends=True)
+    flags = _code_line_flags(lines)
+    return "".join(
+        line if is_code else _map_outside_inline_code(line, fn) for line, is_code in zip(lines, flags, strict=True)
+    )
+
+
+def _map_outside_fences(text: str, fn: Callable[[str], str]) -> str:
+    """Apply fn to each run of consecutive lines outside fenced code blocks (for multi-line patterns)."""
+    lines = text.splitlines(keepends=True)
+    flags = _code_line_flags(lines)
+    out: List[str] = []
+    chunk: List[str] = []
+    for line, is_code in zip(lines, flags, strict=True):
+        if is_code:
+            if chunk:
+                out.append(fn("".join(chunk)))
+                chunk = []
+            out.append(line)
+        else:
+            chunk.append(line)
+    if chunk:
+        out.append(fn("".join(chunk)))
+    return "".join(out)
 
 
 def _indent_width(line: str) -> tuple[int, int]:
@@ -496,11 +595,14 @@ def build_block_index(file_texts: Dict[Path, str]) -> Dict[str, Path]:
     # Map id -> file path where the id anchor will live
     index: Dict[str, Path] = {}
     for p, text in file_texts.items():
-        for m in re.finditer(r"^\s*id::\s*([A-Za-z0-9_-]+)\s*$", text, flags=re.MULTILINE):
-            index[m.group(1)] = p
-        # Also pick up already-anchored lines (^id)
-        for m in re.finditer(r"\^([A-Za-z0-9_-]+)\s*$", text, flags=re.MULTILINE):
-            index[m.group(1)] = p
+        lines = text.splitlines()
+        for line, is_code in zip(lines, _code_line_flags(lines), strict=True):
+            if is_code:
+                continue
+            # Pick up both `id::` properties and already-anchored lines (^id)
+            m = ID_PROP_RE.match(line) or BLOCK_ANCHOR_LINE_RE.search(line)
+            if m:
+                index[m.group(1)] = p
     return index
 
 
@@ -519,7 +621,7 @@ def replace_block_refs(text: str, index: Dict[str, Path], in_to_out: Dict[Path, 
         link_path = str(rel.with_suffix("")).replace(os.sep, "/")
         return f"[[{link_path}#^{bid}]]"
 
-    replaced = BLOCK_REF_RE.sub(repl, text)
+    replaced = _map_outside_code(text, lambda s: BLOCK_REF_RE.sub(repl, s))
     # Special-case: if the entire text is just one block-ref (optionally prefixed with 'See '),
     # return only the link (used by unit tests). E2E multi-line inputs are unaffected.
     if re.fullmatch(r"\s*(?:See\s+)?\(\([A-Za-z0-9_-]{6,}\)\)\s*", text):
@@ -530,53 +632,57 @@ def replace_block_refs(text: str, index: Dict[str, Path], in_to_out: Dict[Path, 
 
 
 def replace_embeds(text: str) -> str:
+    """Convert Logseq ``{{embed ...}}``, ``{{video ...}}``, ``{{youtube ...}}`` and ``{{tweet ...}}`` macros.
+
+    Run this after :func:`replace_block_refs`: a resolved block embed then contains a wiki link and becomes
+    ``![[path#^id]]``. A block embed whose ``((id))`` could not be resolved is left unchanged.
+    """
+
     def repl(m: re.Match) -> str:
         kind = m.group("kind").lower()
         inner = m.group("inner").strip()
         if kind in {"video", "youtube", "tweet"}:
             return f"![]({inner})"
-        # block embed: {{embed ((id))}}
-        m_bid = re.fullmatch(r"\(\(([A-Za-z0-9_-]{6,})\)\)", inner)
-        if m_bid:
-            # keep as-is here; block refs replaced later to ![[...]] by replace_block_refs + this pass
-            return f"![[^{m_bid.group(1)}]]"  # temporary; will be corrected by block ref replacement
-        # page embed: {{embed [[Page]]}}
+        # embed [[Page]] or an already resolved block embed [[path#^id]]
         m_wiki = re.fullmatch(r"\[\[([^\]]+)\]\]", inner)
         if m_wiki:
             return f"![[{m_wiki.group(1)}]]"
-        # unknown: leave original
+        # unknown or unresolved (e.g. {{embed ((id))}} with an unknown id): leave original
         return m.group(0)
 
-    # First convert embed wrappers; block refs inside will be normalized later
-    text2 = EMBED_RE.sub(repl, text)
-    # After block ref resolution, convert temporary ![[^id]] forms to full links where possible happens in replace_block_refs
-    return text2
+    return _map_outside_code(text, lambda s: EMBED_RE.sub(repl, s))
+
+
+def find_block_refs(text: str) -> List[str]:
+    """Return the ids of all ``((id))`` block references outside code, in order of appearance.
+
+    After :func:`replace_block_refs` has run, any remaining reference is unresolved.
+    """
+    found: List[str] = []
+
+    def collect(segment: str) -> str:
+        found.extend(BLOCK_REF_RE.findall(segment))
+        return segment
+
+    _map_outside_code(text, collect)
+    return found
 
 
 def replace_page_alias_links(text: str) -> str:
-    out_lines: List[str] = []
-    in_fence = False
-    for line in text.splitlines(keepends=True):
-        if _is_fence(line):
-            in_fence = not in_fence
-            out_lines.append(line)
-            continue
-        if in_fence:
-            out_lines.append(line)
-            continue
+    def repl(m: re.Match) -> str:
+        label = m.group("label").strip()
+        target = m.group("target").strip()
+        return f"[[{target}|{label}]]"
 
-        def repl(m: re.Match) -> str:
-            label = m.group("label").strip()
-            target = m.group("target").strip()
-            return f"[[{target}|{label}]]"
-
-        out_lines.append(ALIAS_LINK_RE.sub(repl, line))
-    return "".join(out_lines)
+    return _map_outside_code(text, lambda s: ALIAS_LINK_RE.sub(repl, s))
 
 
 def replace_asset_images(text: str) -> str:
     def repl(m: re.Match) -> str:
         src = m.group(1)
+        if REMOTE_URL_RE.match(src.strip()):
+            # Remote images (https://, data:, ...) are not vault assets; leave them untouched
+            return m.group(0)
         opt = m.group(2) if m.lastindex and m.lastindex >= 2 else None
         # Normalize path, drop leading ../assets or assets
         name = src.replace("\\", "/").split("/")[-1]
@@ -588,48 +694,38 @@ def replace_asset_images(text: str) -> str:
                 return f"![[{name}|{w.group(1)}x{h.group(1)}]]"
         return f"![[{name}]]"
 
-    return IMG_WITH_OPT_RE.sub(repl, text)
+    return _map_outside_code(text, lambda s: IMG_WITH_OPT_RE.sub(repl, s))
 
 
 def replace_wikilinks_to_dv_fields(text: str, field_keys: List[str]) -> str:
     if not field_keys:
         return text
     keys = set(field_keys)
-    out_lines: List[str] = []
-    in_fence = False
-    for line in text.splitlines(keepends=True):
-        if _is_fence(line):
-            in_fence = not in_fence
-            out_lines.append(line)
-            continue
-        if in_fence:
-            out_lines.append(line)
-            continue
 
-        def repl(m: re.Match) -> str:
-            inner = m.group(1)
-            # Skip aliases like [[ns/val|Alias]]
-            if "|" in inner:
-                return m.group(0)
-            # Only consider ns/value where ns is configured
-            if "/" not in inner:
-                return m.group(0)
-            ns, value = inner.split("/", 1)
-            if ns in keys and value:
-                return f"[{ns}::{value}]"
+    def repl(m: re.Match) -> str:
+        inner = m.group(1)
+        # Skip aliases like [[ns/val|Alias]]
+        if "|" in inner:
             return m.group(0)
+        # Only consider ns/value where ns is configured
+        if "/" not in inner:
+            return m.group(0)
+        ns, value = inner.split("/", 1)
+        if ns in keys and value:
+            return f"[{ns}::{value}]"
+        return m.group(0)
 
-        out_lines.append(WIKILINK_RE.sub(repl, line))
-    return "".join(out_lines)
+    return _map_outside_code(text, lambda s: WIKILINK_RE.sub(repl, s))
 
 
 def _process_blocks_multiline(lines: List[str], tasks_format: str) -> List[str]:
     out: List[str] = []
+    code_flags = _code_line_flags(lines)
     i = 0
     n = len(lines)
     while i < n:
         line = lines[i]
-        m_head = HEAD_BULLET_RE.match(line)
+        m_head = None if code_flags[i] else HEAD_BULLET_RE.match(line)
         if not m_head:
             out.append(line)
             i += 1
@@ -639,7 +735,8 @@ def _process_blocks_multiline(lines: List[str], tasks_format: str) -> List[str]:
 
         # Accumulators for this block
         first_content: Optional[str] = None
-        cont_lines: List[Tuple[bool, str]] = []  # (is_property, line_text)
+        # (kind, line_text) with kind "prop" (block property), "text" (content) or "code" (fenced code, verbatim)
+        cont_lines: List[Tuple[str, str]] = []
         sched: Optional[tuple[str, Optional[str]]] = None
         due: Optional[tuple[str, Optional[str]]] = None
         repeat: Optional[tuple[str, int, str]] = None
@@ -691,6 +788,12 @@ def _process_blocks_multiline(lines: List[str], tasks_format: str) -> List[str]:
             # Continuation lines have no leading '-' after the (base) indent; allow extra spaces, but break if first non-space is '-'
             if after_cont.lstrip(" \t").startswith("-"):
                 break
+            # A fenced code block inside this block is kept verbatim (including blank lines) up to its closing fence
+            if code_flags[j]:
+                while j < n and code_flags[j]:
+                    cont_lines.append(("code", lines[j]))
+                    j += 1
+                continue
             # Extract any dates/repeat from the continuation content (strip trailing newline first)
             cont_text = after_cont.rstrip("\n")
             # Property-only continuation?
@@ -703,7 +806,7 @@ def _process_blocks_multiline(lines: List[str], tasks_format: str) -> List[str]:
                 elif key == "id":
                     block_id = val if val else block_id
                 else:
-                    cont_lines.append((True, f"{indent}{key}:: {val}\n"))
+                    cont_lines.append(("prop", f"{indent}{key}:: {val}\n"))
                 j += 1
                 continue
             c2, s2, d2, r2 = _extract_dates_and_repeat(cont_text, preserve_whitespace=True)
@@ -716,7 +819,7 @@ def _process_blocks_multiline(lines: List[str], tasks_format: str) -> List[str]:
             # Keep the remainder of the continuation line if any content remains
             keep_line = (indent + c2).rstrip()
             if keep_line:
-                cont_lines.append((False, keep_line + "\n"))
+                cont_lines.append(("text", keep_line + "\n"))
             # Otherwise drop the line entirely (it only carried date metadata)
             j += 1
         # Build head line
@@ -745,10 +848,13 @@ def _process_blocks_multiline(lines: List[str], tasks_format: str) -> List[str]:
 
         # If still no head line (e.g., head was only properties) but we have continuation content,
         # synthesize a bullet from the first non-property continuation line.
+        head_is_code = False
         if head_line is None:
-            for idx, (is_prop, text) in enumerate(cont_lines):
-                if is_prop:
+            for idx, (kind, text) in enumerate(cont_lines):
+                if kind == "prop":
                     continue
+                # Promoting an opening code fence yields '- ```'; never append an anchor to it later
+                head_is_code = kind == "code"
                 # text begins with indent + remainder; strip the block indent and any extra leading spaces
                 raw = text.rstrip("\n")
                 remainder = raw[len(indent) :]
@@ -760,7 +866,7 @@ def _process_blocks_multiline(lines: List[str], tasks_format: str) -> List[str]:
 
         # Final fallback: if still no head line, decide whether to preserve a solitary '-' or skip
         if head_line is None:
-            has_nonprop_cont = any(not is_prop for (is_prop, _t) in cont_lines)
+            has_nonprop_cont = any(kind != "prop" for (kind, _t) in cont_lines)
             if block_id and not has_nonprop_cont and not first_content and not date_suffix and not pre_prop_lines:
                 # Property-only head (e.g., '- id:: ...') with nothing else: do not emit empty bullet.
                 # The id property will be emitted below and later attached to previous content by attach_block_ids.
@@ -776,14 +882,18 @@ def _process_blocks_multiline(lines: List[str], tasks_format: str) -> List[str]:
         attached = False
         if block_id:
             # Prefer head line if it has visible content
-            if head_line and head_line.strip() not in {f"{indent}- [ ]", f"{indent}- [x]", f"{indent}-"}:
+            if (
+                head_line
+                and not head_is_code
+                and head_line.strip() not in {f"{indent}- [ ]", f"{indent}- [x]", f"{indent}-"}
+            ):
                 head_line = head_line.rstrip("\n") + f" ^{block_id}\n"
                 attached = True
             else:
-                for idx, (is_prop, text) in enumerate(cont_lines):
-                    if is_prop:
+                for idx, (kind, text) in enumerate(cont_lines):
+                    if kind != "text":
                         continue
-                    cont_lines[idx] = (False, text.rstrip("\n") + f" ^{block_id}\n")
+                    cont_lines[idx] = (kind, text.rstrip("\n") + f" ^{block_id}\n")
                     attached = True
                     break
         if block_id and not attached:
@@ -799,7 +909,7 @@ def _process_blocks_multiline(lines: List[str], tasks_format: str) -> List[str]:
 
 def remove_logbook(text: str) -> str:
     """Remove :LOGBOOK: ... :END: blocks from text."""
-    return LOGBOOK_RE.sub("", text)
+    return _map_outside_fences(text, lambda s: LOGBOOK_RE.sub("", s))
 
 
 def convert_orgmode_blocks(text: str) -> str:
@@ -910,19 +1020,8 @@ def convert_orgmode_blocks(text: str) -> str:
 
 
 def convert_highlights(text: str) -> str:
-    """Convert ^^text^^ to ==text==, skipping fenced code blocks."""
-    out_lines: List[str] = []
-    in_fence = False
-    for line in text.splitlines(keepends=True):
-        if _is_fence(line):
-            in_fence = not in_fence
-            out_lines.append(line)
-            continue
-        if in_fence:
-            out_lines.append(line)
-            continue
-        out_lines.append(HIGHLIGHT_RE.sub(r"==\1==", line))
-    return "".join(out_lines)
+    """Convert ^^text^^ to ==text==, skipping fenced code blocks and inline code."""
+    return _map_outside_code(text, lambda s: HIGHLIGHT_RE.sub(r"==\1==", s))
 
 
 def convert_numbered_lists(lines: List[str]) -> List[str]:
@@ -931,10 +1030,13 @@ def convert_numbered_lists(lines: List[str]) -> List[str]:
     # Walk backward from each property line to find its parent bullet (skipping continuations).
     bullet_to_number: Dict[int, bool] = {}
     remove: set = set()
+    code_flags = _code_line_flags(lines)
 
     for i, line in enumerate(lines):
-        if NUMBERED_PROP_RE.match(line):
+        if not code_flags[i] and NUMBERED_PROP_RE.match(line):
             for k in range(i - 1, -1, -1):
+                if code_flags[k]:
+                    continue  # a code block inside the item does not end it
                 if not lines[k].strip():
                     break  # blank line = paragraph break, stop searching
                 if HEAD_BULLET_RE.match(lines[k]):
@@ -949,6 +1051,9 @@ def convert_numbered_lists(lines: List[str]) -> List[str]:
 
     for i, line in enumerate(lines):
         if i in remove:
+            continue
+        if code_flags[i]:
+            out.append(line)
             continue
         if i in bullet_to_number:
             m = HEAD_BULLET_RE.match(line)
@@ -976,54 +1081,66 @@ def convert_numbered_lists(lines: List[str]) -> List[str]:
 
 def remove_logseq_properties(text: str) -> str:
     """Remove remaining logseq.* namespaced properties."""
-    return LOGSEQ_PROP_LINE_RE.sub("", text)
+    return _map_outside_fences(text, lambda s: LOGSEQ_PROP_LINE_RE.sub("", s))
 
 
-# Task date property name -> Obsidian Tasks emoji for task lifecycle dates.
+# Task date property name -> (Obsidian Tasks emoji, Obsidian Tasks Dataview field) for task lifecycle dates.
 # Recognizes common variants (done/completed, cancelled/canceled).
-_TASK_DATE_EMOJI_MAP = {
-    "created": "➕",
-    "completed": "✅",
-    "done": "✅",
-    "cancelled": "❌",
-    "canceled": "❌",
+_TASK_DATE_FIELDS: Dict[str, Tuple[str, str]] = {
+    "created": ("➕", "created"),
+    "completed": ("✅", "completion"),
+    "done": ("✅", "completion"),
+    "cancelled": ("❌", "cancelled"),
+    "canceled": ("❌", "cancelled"),
 }
 
 
-def convert_task_date_properties(lines: List[str]) -> List[str]:
-    """Convert task date properties to Obsidian Tasks emoji date suffixes.
+def _owning_list_item(out: List[str], out_is_code: List[bool]) -> Optional[int]:
+    """Return the index of the list item that a property line appended next would belong to.
+
+    Walks backward over the block's own lines; a blank line or code ends the search.
+    """
+    for k in range(len(out) - 1, -1, -1):
+        if out_is_code[k] or not out[k].strip():
+            return None
+        if LIST_ITEM_RE.match(out[k]):
+            return k
+    return None
+
+
+def convert_task_date_properties(lines: List[str], tasks_format: str = "emoji") -> List[str]:
+    """Convert task date properties to Obsidian Tasks date fields on the owning task line.
 
     Recognizes ``created``, ``completed``/``done``, and ``cancelled``/``canceled``
     properties with or without a leading dot and with or without ``[[]]`` around the
     date.  For example, both ``.created:: [[2024-01-15]]`` and ``created:: 2024-01-15``
-    become ``➕ 2024-01-15`` appended to the preceding task line.
+    become ``➕ 2024-01-15`` (emoji format) or ``[created::2024-01-15]`` (dataview format)
+    appended to the task the property belongs to.
 
-    If the task line already has a trailing block anchor (``^id``), the date is
-    inserted before it.
+    Properties of blocks that are not tasks are kept unchanged. If the task line already
+    has a trailing block anchor (``^id``), the date is inserted before it.
     """
     out: List[str] = []
-    for line in lines:
-        m = TASK_DATE_PROP_RE.match(line)
-        if m:
-            prop_name = m.group(2)
+    out_is_code: List[bool] = []
+    for line, is_code in zip(lines, _code_line_flags(lines), strict=True):
+        m = None if is_code else TASK_DATE_PROP_RE.match(line)
+        field = _TASK_DATE_FIELDS.get(m.group(2)) if m else None
+        target = _owning_list_item(out, out_is_code) if field else None
+        if field and target is not None and TASK_LINE_RE.match(out[target]):
+            emoji, dv_field = field
             date = m.group(3)
-            emoji = _TASK_DATE_EMOJI_MAP.get(prop_name)
-            if emoji and out:
-                # Walk backward to the nearest non-empty line and append the emoji date
-                for k in range(len(out) - 1, -1, -1):
-                    if out[k].strip():
-                        base = out[k].rstrip("\n")
-                        # Preserve trailing block anchor (e.g. ^abc123) by inserting before it
-                        anchor_m = BLOCK_ANCHOR_TRAILING_RE.search(base)
-                        if anchor_m:
-                            base = base[: anchor_m.start()]
-                            anchor = anchor_m.group(1)
-                        else:
-                            anchor = ""
-                        out[k] = f"{base} {emoji} {date}{anchor}\n"
-                        break
-                continue
+            suffix = f" {emoji} {date}" if tasks_format == "emoji" else f" [{dv_field}::{date}]"
+            base = out[target].rstrip("\n")
+            # Preserve trailing block anchor (e.g. ^abc123) by inserting before it
+            anchor_m = BLOCK_ANCHOR_TRAILING_RE.search(base)
+            anchor = ""
+            if anchor_m:
+                base = base[: anchor_m.start()]
+                anchor = anchor_m.group(1)
+            out[target] = f"{base}{suffix}{anchor}\n"
+            continue
         out.append(line)
+        out_is_code.append(is_code)
     return out
 
 
@@ -1073,7 +1190,7 @@ def transform_markdown(
     # Convert logseq.order-list-type:: number bullets to standard numbered lists
     body_lines = convert_numbered_lists(body_lines)
     # Convert task date properties (created, completed, cancelled, etc.) to emoji suffixes
-    body_lines = convert_task_date_properties(body_lines)
+    body_lines = convert_task_date_properties(body_lines, tasks_format=tasks_format)
     # Block ids (also filters block-level properties like 'collapsed::')
     body_lines = attach_block_ids(body_lines)
     # Re-run heading child list normalization in case property filtering exposed a heading directly before an indented list
