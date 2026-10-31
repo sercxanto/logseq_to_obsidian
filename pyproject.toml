@@ -25,8 +25,8 @@ authors = [
 ]
 
 [project.urls]
-homepage = "https://github.com/sercxanto/logseq-to-obsidian"
-repository = "https://github.com/sercxanto/logseq-to-obsidian.git"
+homepage = "https://github.com/sercxanto/logseq_to_obsidian"
+repository = "https://github.com/sercxanto/logseq_to_obsidian.git"
 
 
 
