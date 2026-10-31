@@ -120,11 +120,24 @@ jobs:
             exit 1
           fi
 
-      - name: Create release
+      - name: Create or update release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" dist/* \
-            --title "${GITHUB_REF_NAME}" \
-            --notes-file release-notes.md \
-            --verify-tag
+          tag="${GITHUB_REF_NAME}"
+          if gh release view "$tag" > /dev/null 2>&1; then
+            # The release was published in the GitHub web UI, which is what created the tag.
+            # Fill in empty release notes, but keep notes written by hand.
+            body="$(gh release view "$tag" --json body --jq .body)"
+            if [ -z "${body//[[:space:]]/}" ]; then
+              gh release edit "$tag" --notes-file release-notes.md
+            else
+              echo "Release ${tag} already has notes; leaving them unchanged."
+            fi
+            gh release upload "$tag" dist/* --clobber
+          else
+            gh release create "$tag" dist/* \
+              --title "$tag" \
+              --notes-file release-notes.md \
+              --verify-tag
+          fi
