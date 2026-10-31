@@ -158,8 +158,9 @@ release commit, which you can create in one of two ways:
 
 - In the GitHub web UI (e.g. after merging the release commit through a pull
   request), open *Releases → Draft a new release*, enter the new tag
-  `v<version>` with `main` as target and publish the release. You can leave
-  the description empty; the workflow fills it in from `CHANGELOG.md`. Saving
+  `v<version>` with `main` as target, use `<version>` (without `v`) as title
+  and publish the release. You can leave the description empty; the workflow
+  fills it in from `CHANGELOG.md`. Saving
   only a draft does not create the tag and does not trigger the workflow.
 
 The workflow:

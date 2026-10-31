@@ -137,7 +137,7 @@ jobs:
             gh release upload "$tag" dist/* --clobber
           else
             gh release create "$tag" dist/* \
-              --title "$tag" \
+              --title "${tag#v}" \
               --notes-file release-notes.md \
               --verify-tag
           fi
