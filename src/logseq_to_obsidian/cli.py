@@ -8,6 +8,7 @@ from typing import Dict, List
 from .planner import Options, collect_files, copy_or_write
 from .transformer import (
     build_block_index,
+    find_block_refs,
     replace_asset_images,
     replace_block_refs,
     replace_embeds,
@@ -18,6 +19,14 @@ from .transformer import (
 from .version import __version__
 
 __all__ = ["main", "parse_args"]
+
+
+def _rel(path: Path, root: Path) -> Path:
+    """Return path relative to root, or path itself if it lies outside root."""
+    try:
+        return path.relative_to(root)
+    except ValueError:
+        return path
 
 
 def parse_args(argv: List[str]) -> Options:
@@ -79,18 +88,11 @@ def main(argv: List[str]) -> int:
     for pl in plans:
         if not pl.is_markdown:
             continue
-        try:
-            rel = pl.in_path.relative_to(opt.input_dir)
-        except ValueError:
-            rel = pl.in_path
+        rel = _rel(pl.in_path, opt.input_dir)
         print(f"[TRANSFORM] {rel}")
         raw = pl.in_path.read_text(encoding="utf-8")
         # Compute the expected title as the vault-relative output path without extension
-        try:
-            rel_out = pl.out_path.relative_to(opt.output_dir)
-        except ValueError:
-            rel_out = pl.out_path
-        expected_title = rel_out.with_suffix("").as_posix()
+        expected_title = _rel(pl.out_path, opt.output_dir).with_suffix("").as_posix()
         transformed = transform_markdown(
             raw,
             expected_title_path=expected_title,
@@ -111,6 +113,14 @@ def main(argv: List[str]) -> int:
             text = pre_texts.get(pl.in_path, pl.in_path.read_text(encoding="utf-8"))
             text = replace_block_refs(text, block_index, in_to_out, opt.output_dir)
             text = replace_embeds(text)
+            unresolved = list(dict.fromkeys(find_block_refs(text)))
+            if unresolved:
+                msg = (
+                    f"[WARN] Unresolved block reference(s) in {_rel(pl.in_path, opt.input_dir)}: "
+                    f"{', '.join(unresolved)} (left unchanged)"
+                )
+                print(msg)
+                warn_messages.append(msg)
             text = replace_page_alias_links(text)
             text = replace_wikilinks_to_dv_fields(text, opt.field_keys)
             text = replace_asset_images(text)

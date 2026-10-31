@@ -59,6 +59,9 @@ TASK_DATE_PROP_RE = re.compile(r"^(\s*)\.?(\w+)::\s*(?:\[\[)?(\d{4}-\d{2}-\d{2})
 # Trailing block anchor like ^abc123 at end of line
 BLOCK_ANCHOR_TRAILING_RE = re.compile(r"(\s+\^[A-Za-z0-9_-]+)$")
 BLOCK_ANCHOR_LINE_RE = re.compile(r"\^([A-Za-z0-9_-]+)\s*$")
+# Any list item (bullet or numbered), and list items that are Obsidian tasks
+LIST_ITEM_RE = re.compile(r"^[ \t]*(?:[-*+]|\d+[.)])(?:\s|$)")
+TASK_LINE_RE = re.compile(r"^[ \t]*(?:[-*+]|\d+[.)])\s+\[[ xX]\](?:\s|$)")
 # Inline code span: a run of N backticks, content, and a closing run of exactly N backticks
 INLINE_CODE_RE = re.compile(r"(?<!`)(`+)(?!`).+?(?<!`)\1(?!`)")
 # Image source with a URL scheme (http:, https:, data:, ...) or protocol-relative '//'.
@@ -88,6 +91,7 @@ __all__ = [
     "convert_orgmode_blocks",
     "convert_task_date_properties",
     "emit_yaml_frontmatter",
+    "find_block_refs",
     "fix_heading_child_lists",
     "normalize_aliases",
     "normalize_tags",
@@ -628,27 +632,40 @@ def replace_block_refs(text: str, index: Dict[str, Path], in_to_out: Dict[Path, 
 
 
 def replace_embeds(text: str) -> str:
+    """Convert Logseq ``{{embed ...}}``, ``{{video ...}}``, ``{{youtube ...}}`` and ``{{tweet ...}}`` macros.
+
+    Run this after :func:`replace_block_refs`: a resolved block embed then contains a wiki link and becomes
+    ``![[path#^id]]``. A block embed whose ``((id))`` could not be resolved is left unchanged.
+    """
+
     def repl(m: re.Match) -> str:
         kind = m.group("kind").lower()
         inner = m.group("inner").strip()
         if kind in {"video", "youtube", "tweet"}:
             return f"![]({inner})"
-        # block embed: {{embed ((id))}}
-        m_bid = re.fullmatch(r"\(\(([A-Za-z0-9_-]{6,})\)\)", inner)
-        if m_bid:
-            # keep as-is here; block refs replaced later to ![[...]] by replace_block_refs + this pass
-            return f"![[^{m_bid.group(1)}]]"  # temporary; will be corrected by block ref replacement
-        # page embed: {{embed [[Page]]}}
+        # embed [[Page]] or an already resolved block embed [[path#^id]]
         m_wiki = re.fullmatch(r"\[\[([^\]]+)\]\]", inner)
         if m_wiki:
             return f"![[{m_wiki.group(1)}]]"
-        # unknown: leave original
+        # unknown or unresolved (e.g. {{embed ((id))}} with an unknown id): leave original
         return m.group(0)
 
-    # First convert embed wrappers; block refs inside will be normalized later
-    text2 = _map_outside_code(text, lambda s: EMBED_RE.sub(repl, s))
-    # After block ref resolution, convert temporary ![[^id]] forms to full links where possible happens in replace_block_refs
-    return text2
+    return _map_outside_code(text, lambda s: EMBED_RE.sub(repl, s))
+
+
+def find_block_refs(text: str) -> List[str]:
+    """Return the ids of all ``((id))`` block references outside code, in order of appearance.
+
+    After :func:`replace_block_refs` has run, any remaining reference is unresolved.
+    """
+    found: List[str] = []
+
+    def collect(segment: str) -> str:
+        found.extend(BLOCK_REF_RE.findall(segment))
+        return segment
+
+    _map_outside_code(text, collect)
+    return found
 
 
 def replace_page_alias_links(text: str) -> str:
@@ -1067,51 +1084,61 @@ def remove_logseq_properties(text: str) -> str:
     return _map_outside_fences(text, lambda s: LOGSEQ_PROP_LINE_RE.sub("", s))
 
 
-# Task date property name -> Obsidian Tasks emoji for task lifecycle dates.
+# Task date property name -> (Obsidian Tasks emoji, Obsidian Tasks Dataview field) for task lifecycle dates.
 # Recognizes common variants (done/completed, cancelled/canceled).
-_TASK_DATE_EMOJI_MAP = {
-    "created": "➕",
-    "completed": "✅",
-    "done": "✅",
-    "cancelled": "❌",
-    "canceled": "❌",
+_TASK_DATE_FIELDS: Dict[str, Tuple[str, str]] = {
+    "created": ("➕", "created"),
+    "completed": ("✅", "completion"),
+    "done": ("✅", "completion"),
+    "cancelled": ("❌", "cancelled"),
+    "canceled": ("❌", "cancelled"),
 }
 
 
-def convert_task_date_properties(lines: List[str]) -> List[str]:
-    """Convert task date properties to Obsidian Tasks emoji date suffixes.
+def _owning_list_item(out: List[str], out_is_code: List[bool]) -> Optional[int]:
+    """Return the index of the list item that a property line appended next would belong to.
+
+    Walks backward over the block's own lines; a blank line or code ends the search.
+    """
+    for k in range(len(out) - 1, -1, -1):
+        if out_is_code[k] or not out[k].strip():
+            return None
+        if LIST_ITEM_RE.match(out[k]):
+            return k
+    return None
+
+
+def convert_task_date_properties(lines: List[str], tasks_format: str = "emoji") -> List[str]:
+    """Convert task date properties to Obsidian Tasks date fields on the owning task line.
 
     Recognizes ``created``, ``completed``/``done``, and ``cancelled``/``canceled``
     properties with or without a leading dot and with or without ``[[]]`` around the
     date.  For example, both ``.created:: [[2024-01-15]]`` and ``created:: 2024-01-15``
-    become ``➕ 2024-01-15`` appended to the preceding task line.
+    become ``➕ 2024-01-15`` (emoji format) or ``[created::2024-01-15]`` (dataview format)
+    appended to the task the property belongs to.
 
-    If the task line already has a trailing block anchor (``^id``), the date is
-    inserted before it.
+    Properties of blocks that are not tasks are kept unchanged. If the task line already
+    has a trailing block anchor (``^id``), the date is inserted before it.
     """
     out: List[str] = []
     out_is_code: List[bool] = []
     for line, is_code in zip(lines, _code_line_flags(lines), strict=True):
         m = None if is_code else TASK_DATE_PROP_RE.match(line)
-        if m:
-            prop_name = m.group(2)
+        field = _TASK_DATE_FIELDS.get(m.group(2)) if m else None
+        target = _owning_list_item(out, out_is_code) if field else None
+        if field and target is not None and TASK_LINE_RE.match(out[target]):
+            emoji, dv_field = field
             date = m.group(3)
-            emoji = _TASK_DATE_EMOJI_MAP.get(prop_name)
-            # The nearest non-empty line receives the date, unless it is code (a suffix would break the fence)
-            target = next((k for k in range(len(out) - 1, -1, -1) if out[k].strip()), None)
-            if target is not None and out_is_code[target]:
-                target = None
-            if emoji and target is not None:
-                base = out[target].rstrip("\n")
-                # Preserve trailing block anchor (e.g. ^abc123) by inserting before it
-                anchor_m = BLOCK_ANCHOR_TRAILING_RE.search(base)
-                if anchor_m:
-                    base = base[: anchor_m.start()]
-                    anchor = anchor_m.group(1)
-                else:
-                    anchor = ""
-                out[target] = f"{base} {emoji} {date}{anchor}\n"
-                continue
+            suffix = f" {emoji} {date}" if tasks_format == "emoji" else f" [{dv_field}::{date}]"
+            base = out[target].rstrip("\n")
+            # Preserve trailing block anchor (e.g. ^abc123) by inserting before it
+            anchor_m = BLOCK_ANCHOR_TRAILING_RE.search(base)
+            anchor = ""
+            if anchor_m:
+                base = base[: anchor_m.start()]
+                anchor = anchor_m.group(1)
+            out[target] = f"{base}{suffix}{anchor}\n"
+            continue
         out.append(line)
         out_is_code.append(is_code)
     return out
@@ -1163,7 +1190,7 @@ def transform_markdown(
     # Convert logseq.order-list-type:: number bullets to standard numbered lists
     body_lines = convert_numbered_lists(body_lines)
     # Convert task date properties (created, completed, cancelled, etc.) to emoji suffixes
-    body_lines = convert_task_date_properties(body_lines)
+    body_lines = convert_task_date_properties(body_lines, tasks_format=tasks_format)
     # Block ids (also filters block-level properties like 'collapsed::')
     body_lines = attach_block_ids(body_lines)
     # Re-run heading child list normalization in case property filtering exposed a heading directly before an indented list

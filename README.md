@@ -39,7 +39,7 @@
 - Alias links:
     - `[Display Name]([[Page Name]])` → `[[Page Name|Display Name]]` (outside fenced code blocks).
 - Embeds:
-    - `{{embed ((<uuid>))}}` → `![[<FileName>#^<uuid>]]`
+    - `{{embed ((<uuid>))}}` → `![[<FileName>#^<uuid>]]` (left unchanged if the block id cannot be resolved)
     - `{{embed [[Some Page]]}}` → `![[Some Page]]`
     - `{{video https://...}}` → `![](https://...)`
     - `{{youtube https://...}}` → `![](https://...)`
@@ -62,10 +62,11 @@
 - Numbered lists:
     - Logseq stores numbered lists as regular bullets with a hidden `logseq.order-list-type:: number` property. These are converted to standard Markdown numbered lists (`1.`, `2.`, `3.`...) with correct sequential numbering that resets across indent levels and non-numbered items.
 - Task date properties:
-    - `created:: [[YYYY-MM-DD]]` or `created:: YYYY-MM-DD` → appends `➕ YYYY-MM-DD`
-    - `completed:: ...` or `done:: ...` → appends `✅ YYYY-MM-DD`
-    - `cancelled:: ...` or `canceled:: ...` → appends `❌ YYYY-MM-DD`
+    - `created:: [[YYYY-MM-DD]]` or `created:: YYYY-MM-DD` → Emoji: appends `➕ YYYY-MM-DD`; Dataview: `[created::YYYY-MM-DD]`
+    - `completed:: ...` or `done:: ...` → Emoji: appends `✅ YYYY-MM-DD`; Dataview: `[completion::YYYY-MM-DD]`
+    - `cancelled:: ...` or `canceled:: ...` → Emoji: appends `❌ YYYY-MM-DD`; Dataview: `[cancelled::YYYY-MM-DD]`
     - Works with or without a leading dot (e.g., `.created::`) and with or without `[[]]` around the date.
+    - The date is appended to the task the property belongs to; on blocks that are not tasks the property is kept unchanged.
 - Logseq metadata cleanup:
     - `:LOGBOOK:` ... `:END:` time-tracker blocks are removed.
     - Remaining `logseq.*` namespaced block properties (e.g., `logseq.toc::`) are removed.
@@ -119,7 +120,7 @@ python -m logseq_to_obsidian \
 ## Notes and assumptions
 
 - Only Markdown (`.md`) files are transformed; other files are copied.
-- Block reference resolution requires that `id::` appears for referenced blocks in the source files.
+- Block reference resolution requires that `id::` appears for referenced blocks in the source files. Unresolved block references and embeds are left unchanged and reported with one warning per file.
 - This tool is conservative: it preserves unknown page properties in YAML.
 - Block-level `collapsed::` properties are ignored; Obsidian stores list collapse state outside Markdown.
 
@@ -139,6 +140,7 @@ python -m logseq_to_obsidian \
 - Pages: All files from Logseq's `pages/` are placed at the root of the Obsidian vault.
 - Nested paths: Logseq encodes subfolders in page filenames using three underscores `___`.
     - Example: `pages/a___b.md` becomes `a/b.md`.
+- Collisions: if several source files map to the same output path (e.g. `pages/a___b.md` and `pages/a/b.md`, or `pages/Foo.md` and `pages/foo.md`, compared case-insensitively), only the first one in sorted path order is converted. The others are skipped with a warning so nothing is overwritten silently.
 
 ## Journals
 

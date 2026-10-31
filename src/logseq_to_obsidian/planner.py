@@ -5,7 +5,7 @@ import re
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 JOURNAL_DATE_UNDERSCORE_RE = re.compile(r"^(\d{4})_(\d{2})_(\d{2})\.md$")
 PERCENT_ENCODED_RE = re.compile(r"%[0-9A-Fa-f]{2}")
@@ -76,6 +76,9 @@ def collect_files(opt: Options, warn_collector: Optional[List[str]] = None) -> L
     plans: List[FilePlan] = []
     for root, dirs, files in os.walk(opt.input_dir):
         root_p = Path(root)
+        # Walk in sorted order so the result (and which file wins on an output collision) is deterministic
+        dirs.sort()
+        files.sort()
         # Do not descend into certain top-level metadata/content folders not useful in Obsidian
         if root_p == opt.input_dir:
             for skip in (".git", "logseq", "whiteboards"):
@@ -111,7 +114,34 @@ def collect_files(opt: Options, warn_collector: Optional[List[str]] = None) -> L
                     warn_collector.append(msg)
             out_path = plan_output_path(in_path, opt)
             plans.append(FilePlan(in_path=in_path, out_path=out_path, is_markdown=is_markdown(in_path)))
-    return plans
+    return _drop_output_collisions(plans, opt, warn_collector)
+
+
+def _drop_output_collisions(plans: List[FilePlan], opt: Options, warn_collector: Optional[List[str]]) -> List[FilePlan]:
+    """Keep only the first plan per output path and warn about every later one.
+
+    Paths are compared case-insensitively: on macOS and Windows the later file would overwrite the earlier one,
+    and Obsidian resolves links case-insensitively anyway.
+    """
+    kept: List[FilePlan] = []
+    seen: Dict[str, FilePlan] = {}
+    for plan in plans:
+        key = plan.out_path.as_posix().casefold()
+        first = seen.get(key)
+        if first is None:
+            seen[key] = plan
+            kept.append(plan)
+            continue
+        msg = (
+            f"[WARN] Output path collision: {plan.in_path.relative_to(opt.input_dir).as_posix()} and "
+            f"{first.in_path.relative_to(opt.input_dir).as_posix()} both map to "
+            f"{first.out_path.relative_to(opt.output_dir).as_posix()}; "
+            f"skipping {plan.in_path.relative_to(opt.input_dir).as_posix()}"
+        )
+        print(msg)
+        if warn_collector is not None:
+            warn_collector.append(msg)
+    return kept
 
 
 def ensure_dir(p: Path, dry_run: bool = False):
