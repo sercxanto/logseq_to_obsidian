@@ -44,6 +44,27 @@ jobs:
       - name: Build sdist and wheel
         run: poetry build
 
+      - name: Smoke test the built wheel
+        run: |
+          version="$(poetry version -s)"
+          venv="${RUNNER_TEMP}/smoke-venv"
+          out="${RUNNER_TEMP}/smoke-out"
+          python -m venv "$venv"
+          "$venv/bin/pip" install --quiet dist/*.whl
+          # Run from outside the checkout so the installed package is used, not src/.
+          cd "$RUNNER_TEMP"
+          reported="$("$venv/bin/logseq-to-obsidian" --version)"
+          echo "$reported"
+          if [ "$reported" != "logseq-to-obsidian ${version}" ]; then
+            echo "::error::Installed wheel reports '${reported}', expected version ${version}"
+            exit 1
+          fi
+          "$venv/bin/logseq-to-obsidian" \
+            --input "${GITHUB_WORKSPACE}/tests/fixtures/logseq/basic" \
+            --output "$out"
+          # manifest.yml only lists covered requirement IDs; it is not converter output.
+          diff -r --exclude=manifest.yml "$out" "${GITHUB_WORKSPACE}/tests/golden/basic"
+
       - name: Upload distribution
         uses: actions/upload-artifact@v4
         with:

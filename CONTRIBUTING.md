@@ -156,7 +156,9 @@ git push && git push origin v$(poetry version -s)
 Pushing a `v*` tag triggers the workflow, which:
 
 1. checks that the tag matches the version in `pyproject.toml`,
-2. runs lint and tests, then builds the sdist and wheel,
+2. runs lint and tests, builds the sdist and wheel, and smoke-tests the wheel
+   (installs it into a fresh venv, checks `--version` and converts
+   `tests/fixtures/logseq/basic`, comparing the result with `tests/golden/basic`),
 3. publishes to PyPI via [trusted publishing](https://docs.pypi.org/trusted-publishers/)
    (OIDC, no API token needed) from the `pypi` GitHub environment,
 4. creates the GitHub release with the changelog section of that version as
