@@ -82,6 +82,7 @@ def main(argv: List[str]) -> int:
 
     # First pass: read markdown files and pre-transform to attach ids, etc., to allow building index
     pre_texts: Dict[Path, str] = {}
+    unreadable: set[Path] = set()
     in_to_out: Dict[Path, Path] = {pl.in_path: pl.out_path for pl in plans}
 
     # warn_messages is shared with planner warnings
@@ -90,7 +91,14 @@ def main(argv: List[str]) -> int:
             continue
         rel = _rel(pl.in_path, opt.input_dir)
         print(f"[TRANSFORM] {rel}")
-        raw = pl.in_path.read_text(encoding="utf-8")
+        try:
+            raw = pl.in_path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            msg = f"[WARN] Skipping non-UTF-8 file {rel} (copied unchanged)"
+            print(msg)
+            warn_messages.append(msg)
+            unreadable.add(pl.in_path)
+            continue
         # Compute the expected title as the vault-relative output path without extension
         expected_title = _rel(pl.out_path, opt.output_dir).with_suffix("").as_posix()
         transformed = transform_markdown(
@@ -109,8 +117,8 @@ def main(argv: List[str]) -> int:
     writes = 0
     copies = 0
     for pl in plans:
-        if pl.is_markdown:
-            text = pre_texts.get(pl.in_path, pl.in_path.read_text(encoding="utf-8"))
+        if pl.is_markdown and pl.in_path not in unreadable:
+            text = pre_texts[pl.in_path]
             text = replace_block_refs(text, block_index, in_to_out, opt.output_dir)
             text = replace_embeds(text)
             unresolved = list(dict.fromkeys(find_block_refs(text)))
